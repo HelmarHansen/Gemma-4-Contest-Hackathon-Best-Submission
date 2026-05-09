@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MindHeist — New Roleplay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="12" r="3.4"/><path d="M11.4 12H20"/><path d="M17 12v3"/><path d="M20 12v2.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Mind<em>Heist</em></div>
+        <div class="brand-sub">Powered by Gemma 4</div>
+      </div>
+    </div>
+
+    <button class="new-btn">
+      <span class="plus">+</span>
+      <span>New roleplay</span>
+      <span class="shortcut">⌘N</span>
+    </button>
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search projects…">
+    </div>
+
+    <h3>Saved learning projects</h3>
+
+    <div class="projects" id="project-list"></div>
+
+    <div class="sidebar-foot">
+      <div class="avatar">?</div>
+      <div class="who">
+        <div class="who-name">Guest</div>
+        <div class="who-plan"><span class="gem">●</span> Local — Gemma 4</div>
+      </div>
+      <button class="icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">
+        <span>Library</span>
+        <span class="sep">›</span>
+        <span class="here">New roleplay</span>
+      </div>
+      <div class="topbar-right">
+        <span class="badge"><span class="pulse"></span> Gemma 4 · on-device</span>
+        <button class="icon-btn" title="Help">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="scroll">
+
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Plan a new lesson</div>
+          <h1>Steal the knowledge<br>you need — in <em>conversation.</em></h1>
+          <p class="lede">MindHeist turns any topic into a one-on-one roleplay with a tutor of your design — a patient mentor, a tough examiner, a curious peer. Add your study material and step into the lesson.</p>
+        </div>
+      </section>
+
+      <div class="grid">
+
+        <!-- Card 01: Material -->
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2><span class="num">01</span>Material</h2>
+              <div class="card-desc">Source texts, slides, or notes the teacher will draw from.</div>
+            </div>
+          </div>
+          <label class="dropzone" for="file-input">
+            <div class="dz-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>
+            </div>
+            <div class="dz-title">Drop files or <b>browse</b></div>
+            <div class="dz-hint">PDF · DOCX · TXT · PNG · up to 25 MB</div>
+            <input id="file-input" type="file" multiple hidden>
+          </label>
+          <div class="file-list" id="file-list"></div>
+        </article>
+
+        <!-- Card 02: Teacher -->
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2><span class="num">02</span>The teacher</h2>
+              <div class="card-desc">Describe who is teaching you. Personality, voice, what they expect of a student.</div>
+            </div>
+            <button class="btn" type="button" style="white-space:nowrap;font-size:12px;padding:7px 12px;flex-shrink:0">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>
+              Surprise me
+            </button>
+          </div>
+          <div class="persona-grid">
+            <div class="portrait" title="Choose portrait">
+              <svg viewBox="0 0 100 120" fill="currentColor">
+                <circle cx="50" cy="40" r="20"/>
+                <path d="M14 120c0-22 16-40 36-40s36 18 36 40z"/>
+              </svg>
+              <div class="portrait-label">Portrait</div>
+            </div>
+            <div>
+              <div class="row-2">
+                <div class="field">
+                  <label>Name</label>
+                  <input id="teacher-name" placeholder="e.g. Madame Lacroix">
+                </div>
+                <div class="field">
+                  <label>Role / title</label>
+                  <input id="teacher-role" placeholder="e.g. History teacher, debate partner…">
+                </div>
+              </div>
+              <div class="field">
+                <label>Personality &amp; voice</label>
+                <textarea id="teacher-personality" placeholder="Describe how the teacher speaks, behaves, and what they expect from you…"></textarea>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>Traits</label>
+                <div class="traits">
+                  <span class="trait">Patient</span>
+                  <span class="trait">Socratic</span>
+                  <span class="trait">Witty</span>
+                  <span class="trait">Strict</span>
+                  <span class="trait">Encouraging</span>
+                  <span class="trait">Skeptical</span>
+                  <span class="trait">Storyteller</span>
+                  <span class="trait">Dry humor</span>
+                  <span class="trait">Old-school</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 03: Lesson -->
+        <article class="card full">
+          <div class="card-head">
+            <div>
+              <h2><span class="num">03</span>The lesson</h2>
+              <div class="card-desc">What you want to learn, and how you want to be pushed.</div>
+            </div>
+          </div>
+          <div class="topic-grid">
+            <div>
+              <div class="field">
+                <label>Topic &amp; requirements</label>
+                <div class="ta-wrap">
+                  <textarea id="topic-ta" oninput="updateCount(this)" placeholder="e.g. Help me prepare for my oral exam on the French Revolution. Quiz me on causes, key figures, and the Declaration of the Rights of Man. Push back when my arguments are weak…"></textarea>
+                  <div class="ta-foot">
+                    <div class="ta-chips">
+                      <span class="chip">Examples</span>
+                      <span class="chip">+ Add goal</span>
+                    </div>
+                    <span id="char-count">0 / 2,000</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="options">
+              <div class="field" style="margin-bottom:0">
+                <label>Mode</label>
+                <div class="seg" id="mode-seg">
+                  <div class="seg-item">Tutor</div>
+                  <div class="seg-item on">Examiner</div>
+                  <div class="seg-item">Debate</div>
+                  <div class="seg-item">Interview</div>
+                </div>
+              </div>
+              <div class="opt-row">
+                <div class="field" style="margin-bottom:0">
+                  <label>Language</label>
+                  <select id="lesson-language">
+                    <option>French (immersive)</option>
+                    <option>English</option>
+                    <option>German</option>
+                    <option>Spanish</option>
+                  </select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <label>Length</label>
+                  <select id="lesson-length">
+                    <option>15 min — quick drill</option>
+                    <option selected>30 min — standard</option>
+                    <option>60 min — deep dive</option>
+                    <option>Open-ended</option>
+                  </select>
+                </div>
+              </div>
+              <div class="slider-box">
+                <div class="slider-top"><span>Difficulty</span><b id="diff-label">Challenging</b></div>
+                <div class="track" id="diff-track">
+                  <div class="track-fill" id="diff-fill" style="width:60%"></div>
+                  <div class="track-knob" id="diff-knob" style="left:60%"></div>
+                </div>
+                <div class="slider-scale"><span>Gentle</span><span>Balanced</span><span>Challenging</span><span>Brutal</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Action bar -->
+      <div class="action-bar">
+        <div class="action-left">
+          <div class="action-model">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>
+            Gemma 4 · runs locally
+          </div>
+          <div class="action-divider"></div>
+          <div class="action-tokens">No documents yet · add material to begin</div>
+        </div>
+        <div class="action-right">
+          <button class="btn">Save draft</button>
+          <button class="btn btn-primary" onclick="send()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l14 8-14 8z" fill="currentColor"/></svg>
+            Begin roleplay
+            <span class="kbd">⏎</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
