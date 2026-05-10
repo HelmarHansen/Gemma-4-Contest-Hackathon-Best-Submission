@@ -156,7 +156,7 @@ class LessonInput(BaseModel):
 class WorkRequest(BaseModel):
     teacher:  TeacherInput
     lesson:   LessonInput
-    material: str = ""   # extracted text from uploaded files
+    material: str = ""  
 
 # ── Ollama helper ────────────────────────────────────────────────
 
