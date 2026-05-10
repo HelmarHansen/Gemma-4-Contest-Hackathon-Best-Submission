@@ -327,7 +327,7 @@ document.getElementById("hint-btn").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         session_id: blueprint.session_id,
-        message: "[SYSTEM: The student requested a hint. Give a gentle nudge without revealing the full answer.]",
+        message: "[SYSTEM: The detective is stuck. Introduce a new in-story detail — a smell, a prop, a nervous gesture from an NPC, an overheard phrase — that nudges them toward the right knowledge without stating it directly. Stay in character.]",
         history: history.slice(),
       }),
     });

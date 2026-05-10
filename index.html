@@ -74,9 +74,9 @@
 
       <section class="hero">
         <div>
-          <div class="eyebrow">Plan a new lesson</div>
-          <h1>Steal the knowledge<br>you need — in <em>conversation.</em></h1>
-          <p class="lede">MindHeist turns any topic into a one-on-one roleplay with a tutor of your design — a patient mentor, a tough examiner, a curious peer. Add your study material and step into the lesson.</p>
+          <div class="eyebrow">Open a new case</div>
+          <h1>Crack the case.<br>Master the <em>subject.</em></h1>
+          <p class="lede">MindHeist turns any exam topic into a noir detective investigation. A crime is built around your material — suspects hold the facts, clues encode the theory. Solve the mystery by demonstrating what you know.</p>
         </div>
       </section>
 
@@ -105,8 +105,8 @@
         <article class="card">
           <div class="card-head">
             <div>
-              <h2><span class="num">02</span>The teacher</h2>
-              <div class="card-desc">Describe who is teaching you. Personality, voice, what they expect of a student.</div>
+              <h2><span class="num">02</span>Your narrator</h2>
+              <div class="card-desc">Who runs this investigation? A hardboiled dispatcher, a mysterious informant, a ghost from the archives — they set the tone and voice every NPC.</div>
             </div>
             <button class="btn" type="button" style="white-space:nowrap;font-size:12px;padding:7px 12px;flex-shrink:0">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>
@@ -158,16 +158,16 @@
         <article class="card full">
           <div class="card-head">
             <div>
-              <h2><span class="num">03</span>The lesson</h2>
-              <div class="card-desc">What you want to learn, and how you want to be pushed.</div>
+              <h2><span class="num">03</span>The case</h2>
+              <div class="card-desc">What subject should the crime revolve around? The mystery is built entirely from your exam topic.</div>
             </div>
           </div>
           <div class="topic-grid">
             <div>
               <div class="field">
-                <label>Topic &amp; requirements</label>
+                <label>Exam topic &amp; scope</label>
                 <div class="ta-wrap">
-                  <textarea id="topic-ta" oninput="updateCount(this)" placeholder="e.g. Help me prepare for my oral exam on the French Revolution. Quiz me on causes, key figures, and the Declaration of the Rights of Man. Push back when my arguments are weak…"></textarea>
+                  <textarea id="topic-ta" oninput="updateCount(this)" placeholder="e.g. I have an oral exam on the French Revolution — causes, key figures, the Declaration of the Rights of Man. Make it a murder investigation where the victim was a revolutionary scholar. Push me hard on dates and motives."></textarea>
                   <div class="ta-foot">
                     <div class="ta-chips">
                       <span class="chip">Examples</span>
@@ -180,12 +180,12 @@
             </div>
             <div class="options">
               <div class="field" style="margin-bottom:0">
-                <label>Mode</label>
+                <label>Investigation style</label>
                 <div class="seg" id="mode-seg">
-                  <div class="seg-item">Tutor</div>
-                  <div class="seg-item on">Examiner</div>
-                  <div class="seg-item">Debate</div>
-                  <div class="seg-item">Interview</div>
+                  <div class="seg-item">Cold Case</div>
+                  <div class="seg-item on">Murder</div>
+                  <div class="seg-item">Conspiracy</div>
+                  <div class="seg-item">Heist</div>
                 </div>
               </div>
               <div class="opt-row">
@@ -209,12 +209,12 @@
                 </div>
               </div>
               <div class="slider-box">
-                <div class="slider-top"><span>Difficulty</span><b id="diff-label">Challenging</b></div>
+                <div class="slider-top"><span>Case difficulty</span><b id="diff-label">Challenging</b></div>
                 <div class="track" id="diff-track">
                   <div class="track-fill" id="diff-fill" style="width:60%"></div>
                   <div class="track-knob" id="diff-knob" style="left:60%"></div>
                 </div>
-                <div class="slider-scale"><span>Gentle</span><span>Balanced</span><span>Challenging</span><span>Brutal</span></div>
+                <div class="slider-scale"><span>Forgiving</span><span>Balanced</span><span>Unforgiving</span><span>No mercy</span></div>
               </div>
             </div>
           </div>
@@ -236,7 +236,7 @@
           <button class="btn">Save draft</button>
           <button class="btn btn-primary" onclick="send()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l14 8-14 8z" fill="currentColor"/></svg>
-            Begin roleplay
+            Open the case
             <span class="kbd">⏎</span>
           </button>
         </div>

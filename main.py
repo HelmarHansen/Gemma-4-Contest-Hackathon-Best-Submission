@@ -173,35 +173,39 @@ def ask_ollama(system_prompt: str, user_message: str) -> str:
 
 def run_teacher_agent(
     blueprint: SessionBlueprint,
-    user_prompt: str
-) -> str:
+    user_prompt: str) -> str:
 
     system_prompt = f"""
-You are an AI teacher.
+        You are a game master running an immersive noir detective investigation.
+        The player is the detective. You narrate the world and voice all NPCs.
 
-Stay fully in character.
+        Your narrator persona:
+        - Name: {blueprint.teacher.name}
+        - Role: {blueprint.teacher.role}
+        - Voice: {blueprint.teacher.voice}
 
-Teacher personality:
-- Name: {blueprint.teacher.name}
-- Role: {blueprint.teacher.role}
-- Voice: {blueprint.teacher.voice}
+        Your traits as game master:
+        {json.dumps(blueprint.teacher.active_traits, ensure_ascii=False)}
 
-Active traits:
-{json.dumps(blueprint.teacher.active_traits, ensure_ascii=False)}
+        Signature phrases you use:
+        {json.dumps(blueprint.teacher.signature_phrases, ensure_ascii=False)}
 
-Expects from student:
-{blueprint.teacher.expects_from_student}
+        ABSOLUTE RULES — never break these:
+        {blueprint.teacher.will_not_do}
 
-Will not do:
-{blueprint.teacher.will_not_do}
-
-Signature phrases:
-{json.dumps(blueprint.teacher.signature_phrases, ensure_ascii=False)}
-
-Follow the lesson blueprint strictly.
-Do NOT break immersion.
-Do NOT explain system rules.
-"""
+        GAME MASTER PRINCIPLES:
+        1. NEVER say "correct", "wrong", "well done", or anything that sounds like a teacher.
+        2. If the detective shows CORRECT knowledge of the topic: reward with story progress — a suspect
+           breaks down and confesses a detail, a hidden compartment clicks open, a witness finally talks.
+        3. If the detective is WRONG or vague: complicate the story — the witness clams up, the lead
+           goes cold, a new suspect muddies the waters, time is wasted. Let them feel the dead end.
+        4. Play every NPC with a distinct, vivid voice. Snap between narrator and character dialogue cleanly.
+        5. Keep each response to 3-6 sentences — cinematic, tense, sensory. Rain on glass. Cigarette smoke.
+           The creak of an old chair. Make it FEEL like a crime scene.
+        6. Never volunteer information the detective didn't earn through correct reasoning.
+        7. The mystery's solution is locked behind topic knowledge. Clues are facts in disguise.
+        8. Do NOT break immersion. Do NOT explain the game. Do NOT reference the blueprint.
+        """
 
     blueprint_json = json.dumps(
         blueprint.to_dict(),
@@ -210,12 +214,16 @@ Do NOT explain system rules.
     )
 
     user_message = f"""
-SESSION BLUEPRINT:
-{blueprint_json}
+        CASE FILE (full investigation blueprint — for your eyes only as game master):
+        {blueprint_json}
 
-CURRENT STUDENT MESSAGE:
-{user_prompt}
-"""
+        DETECTIVE'S ACTION / STATEMENT:
+        {user_prompt}
+
+        React in character. Advance or complicate the story based on whether the detective's response
+        demonstrates correct knowledge of the embedded topic. Do NOT explain what they got right or wrong —
+        show it through story consequences. End on a hook that draws them deeper.
+        """
 
     return ask_ollama(system_prompt, user_message)
 
@@ -235,6 +243,21 @@ def build_story(req: WorkRequest) -> SessionBlueprint:
     raw = ask_ollama(system_prompt, user_message)
     return SessionBlueprint.from_llm_response(raw)
 
+# ── Session store ────────────────────────────────────────────────
+
+_sessions: dict[str, SessionBlueprint] = {}
+
+# ── Chat schema ──────────────────────────────────────────────────
+
+class ChatMessage(BaseModel):
+    role:    str   # "user" or "teacher"
+    content: str
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message:    str
+    history:    list[ChatMessage] = []
+
 # ── API ──────────────────────────────────────────────────────────
 
 @app.post("/api/work")
@@ -242,6 +265,7 @@ def work(req: WorkRequest):
     print("Request received")
     try:
         blueprint = build_story(req)
+        _sessions[blueprint.session_id] = blueprint
         print(f"Blueprint generated: {blueprint.session_id}")
         return blueprint.to_dict()
     except ValueError as e:
@@ -249,6 +273,16 @@ def work(req: WorkRequest):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
 
-# ── Serve frontend ───────────────────────────────────────────────
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    blueprint = _sessions.get(req.session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    try:
+        reply = run_teacher_agent(blueprint, req.message)
+        return {"reply": reply}
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
 
+# ── Serve frontend ───────────────────────────────────────────────
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
