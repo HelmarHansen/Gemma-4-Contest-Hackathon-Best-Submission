@@ -83,9 +83,8 @@ async function send() {
         }
 
         const data = await res.json();
-        console.log('Blueprint:', data);
-        // TODO: navigate to game page with session data
-        alert('Blueprint ready! Session ID: ' + data.session_id);
+        sessionStorage.setItem('mindheist_blueprint', JSON.stringify(data));
+        window.location.href = '/chat.html';
     } catch (e) {
         alert('Network error: ' + e.message);
     } finally {
