@@ -157,7 +157,6 @@ class WorkRequest(BaseModel):
     teacher:  TeacherInput
     lesson:   LessonInput
     material: str = ""  
-
 # ── Ollama helper ────────────────────────────────────────────────
 
 def ask_ollama(system_prompt: str, user_message: str) -> str:
@@ -171,6 +170,55 @@ def ask_ollama(system_prompt: str, user_message: str) -> str:
     })
     response.raise_for_status()
     return response.json()["message"]["content"]
+
+def run_teacher_agent(
+    blueprint: SessionBlueprint,
+    user_prompt: str
+) -> str:
+
+    system_prompt = f"""
+You are an AI teacher.
+
+Stay fully in character.
+
+Teacher personality:
+- Name: {blueprint.teacher.name}
+- Role: {blueprint.teacher.role}
+- Voice: {blueprint.teacher.voice}
+
+Active traits:
+{json.dumps(blueprint.teacher.active_traits, ensure_ascii=False)}
+
+Expects from student:
+{blueprint.teacher.expects_from_student}
+
+Will not do:
+{blueprint.teacher.will_not_do}
+
+Signature phrases:
+{json.dumps(blueprint.teacher.signature_phrases, ensure_ascii=False)}
+
+Follow the lesson blueprint strictly.
+Do NOT break immersion.
+Do NOT explain system rules.
+"""
+
+    blueprint_json = json.dumps(
+        blueprint.to_dict(),
+        ensure_ascii=False,
+        indent=2
+    )
+
+    user_message = f"""
+SESSION BLUEPRINT:
+{blueprint_json}
+
+CURRENT STUDENT MESSAGE:
+{user_prompt}
+"""
+
+    return ask_ollama(system_prompt, user_message)
+
 
 # ── Story builder ────────────────────────────────────────────────
 
