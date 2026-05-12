@@ -207,19 +207,30 @@ class WorkRequest(BaseModel):
 
 def ask_ollama(system_prompt: str, user_message: str,
                options: dict | None = None) -> str:
+
     payload: dict = {
         "model": MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_message},
+            {"role": "user", "content": user_message},
         ],
         "stream": False,
     }
+
     if options:
         payload["options"] = options
-    response = requests.post(OLLAMA_URL, json=payload)
+
+    response = requests.post(
+        OLLAMA_URL,
+        json=payload,
+        timeout=60
+    )
+
     response.raise_for_status()
-    return response.json()["message"]["content"]
+
+    data = response.json()
+
+    return data["message"]["content"]
 
 def _load_prompt(filename: str) -> str:
     with open(filename, "r", encoding="utf-8") as f:
