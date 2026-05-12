@@ -28,80 +28,80 @@ _OPTS_CHAT      = {"temperature": 0.45, "top_p": 0.90, "top_k": 50,
 
 @dataclass
 class Teacher:
-    name:              str
-    role:              str
-    voice:             str
-    active_traits:     list[str]
-    expects_from_student: str
-    will_not_do:       str
-    signature_phrases: list[str]
+    name:                 str = ""
+    role:                 str = ""
+    voice:                str = ""
+    active_traits:        list[str] = field(default_factory=list)
+    expects_from_student: str = ""
+    will_not_do:          str = ""
+    signature_phrases:    list[str] = field(default_factory=list)
 
 @dataclass
 class Session:
-    mode:             str
-    language:         str
-    immersive:        bool
-    difficulty:       float
-    pacing:           str
-    estimated_turns:  int
-    hint_policy:      str
+    mode:            str   = ""
+    language:        str   = "English"
+    immersive:       bool  = True
+    difficulty:      float = 0.5
+    pacing:          str   = "steady"
+    estimated_turns: int   = 25
+    hint_policy:     str   = "only if asked"
 
 @dataclass
 class Topic:
-    raw:               str
-    core_subject:      str
-    learning_goals:    list[str]
-    likely_weak_spots: list[str]
-    out_of_scope:      str
-    material_summary:  str
+    raw:               str = ""
+    core_subject:      str = ""
+    learning_goals:    list[str] = field(default_factory=list)
+    likely_weak_spots: list[str] = field(default_factory=list)
+    out_of_scope:      str = ""
+    material_summary:  str = ""
 
 @dataclass
 class Phase:
-    id:               str
-    name:             str
-    goal:             str
-    turn_budget:      int
-    teacher_strategy: str
-    exit_condition:   str
-    fallback:         str
+    id:               str = ""
+    name:             str = ""
+    goal:             str = ""
+    turn_budget:      int = 5
+    teacher_strategy: str = ""
+    exit_condition:   str = ""
+    fallback:         str = ""
 
 @dataclass
 class Move:
-    id:                        str
-    phase:                     str
-    type:                      str
-    trigger:                   str
-    content:                   str
-    expected_student_response: str
-    if_correct:                str
-    if_incorrect:              str
+    id:                        str = ""
+    phase:                     str = ""
+    type:                      str = "scene"
+    trigger:                   str = ""
+    content:                   str = ""
+    expected_student_response: str = ""
+    if_correct:                str = ""
+    if_incorrect:              str = ""
     hint:                      str | None = None
 
 @dataclass
 class Contingencies:
-    student_goes_off_topic:        str
-    student_asks_for_answer:       str
-    student_is_silent:             str
-    student_is_consistently_wrong: str
-    student_finishes_early:        str
+    student_goes_off_topic:        str = ""
+    student_asks_for_answer:       str = ""
+    student_is_silent:             str = ""
+    student_is_consistently_wrong: str = ""
+    student_finishes_early:        str = ""
 
 @dataclass
 class Opening:
-    first_line:      str
-    opening_move_id: str
+    first_line:      str = ""
+    opening_move_id: str = ""
 
 @dataclass
 class Closing:
-    success_line: str
-    partial_line: str
-    fail_line:    str
+    success_line: str = ""
+    partial_line: str = ""
+    fail_line:    str = ""
 
 @dataclass
 class ExecutionRules:
-    how_to_pick_next_move:       str
-    when_to_deviate_from_plan:   str
-    response_length_guideline:   str
-    never_do:                    list[str]
+    how_to_pick_next_move:       str = ""
+    when_to_deviate_from_plan:   str = ""
+    response_length_guideline:   str = ""
+    never_do:                    list[str] = field(default_factory=list)
 
 @dataclass
 class SessionBlueprint:
@@ -166,17 +166,20 @@ class SessionBlueprint:
             keys = {f.name for f in dataclasses.fields(cls_)}
             return cls_(**{k: v for k, v in d.items() if k in keys})
 
+        def get(key, default=None):
+            return data.get(key) or default
+
         return cls(
-            session_id=data["session_id"],
-            teacher=fit(Teacher, data["teacher"]),
-            session=fit(Session, data["session"]),
-            topic=fit(Topic, data["topic"]),
-            phases=[fit(Phase, p) for p in data["arc"]["phases"]],
-            moves=[fit(Move, m) for m in data["planned_moves"]],
-            contingencies=fit(Contingencies, data["contingencies"]),
-            opening=fit(Opening, data["opening"]),
-            closing=fit(Closing, data["closing"]),
-            execution_rules=fit(ExecutionRules, data["execution_rules"]),
+            session_id=get("session_id", "session"),
+            teacher=fit(Teacher, get("teacher", {})),
+            session=fit(Session, get("session", {})),
+            topic=fit(Topic, get("topic", {})),
+            phases=[fit(Phase, p) for p in get("arc", {}).get("phases", [])],
+            moves=[fit(Move, m) for m in get("planned_moves", [])],
+            contingencies=fit(Contingencies, get("contingencies", {})),
+            opening=fit(Opening, get("opening", {})),
+            closing=fit(Closing, get("closing", {})),
+            execution_rules=fit(ExecutionRules, get("execution_rules", {})),
         )
 
 # ── Request schema ───────────────────────────────────────────────
