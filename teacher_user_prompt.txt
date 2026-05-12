@@ -1,10 +1,15 @@
 CASE FILE (for your eyes only):
 {blueprint_json}
 
-ACTIVE MOVE (the move the detective is currently on):
+════════════════════════════════════════
+ACTIVE MOVE — THIS IS THE ONLY MOVE YOU ARE WORKING ON RIGHT NOW:
 {current_move_json}
 
 Is this the final (closing) move? {is_closing_move}
+════════════════════════════════════════
+
+CONCEPTS ALREADY TESTED IN THIS SESSION (do NOT ask about these again):
+{already_tested}
 
 CONVERSATION SO FAR:
 {history}
@@ -13,56 +18,51 @@ DETECTIVE'S LATEST INPUT:
 {user_prompt}
 
 ────────────────────────────────────────────────
-BEFORE YOU WRITE — WORK THROUGH THESE STEPS:
+MANDATORY STEPS — WORK THROUGH ALL OF THEM:
 ────────────────────────────────────────────────
 
-STEP 1 — READ THE ACTIVE MOVE.
-The "expected_student_response" field tells you exactly what knowledge the student must demonstrate.
-Extract: the precise term, the mechanism, and the testable condition.
-The "if_correct" and "if_incorrect" fields tell you where the story goes next.
+STEP 1 — ANCHOR TO THE ACTIVE MOVE.
+Read "expected_student_response" from the ACTIVE MOVE above.
+That is the ONE concept being tested right now. Nothing else.
+Do NOT use anything from the "CONCEPTS ALREADY TESTED" list — those are finished.
+The [QUESTION] you write MUST test exactly the concept in expected_student_response,
+and it MUST NOT repeat any question already asked in the conversation history.
 
-STEP 2 — PRECISION CHECK (run this before writing anything).
-  2a. Name the EXACT correct term for the process being tested (one word or short phrase).
-      If you cannot name it precisely, stop — do not guess. Use vaguer language in [STORY] instead.
-  2b. What term did the student use? Is it the exact correct term, a near-synonym, or wrong entirely?
-      Near-synonym = wrong. "Condensation" ≠ "deposition". "Evaporation" ≠ "sublimation".
-      "Burning" ≠ "oxidation". "Friction" ≠ "static friction". "Diffusion" ≠ "osmosis".
-  2c. If wrong or near-synonym: [FEEDBACK] must name BOTH terms and state the distinguishing
-      condition in one clause. Example: "condensation (vapor→liquid) vs. deposition (vapor→solid,
-      no liquid phase) — the key difference is whether liquid forms in between."
-  2d. If the student's answer is factually impossible, [FEEDBACK] must say so explicitly.
+STEP 2 — PRECISION CHECK.
+  2a. Name the exact correct term for the process in the ACTIVE MOVE (one word or short phrase).
+      Only use terms you are certain are correct. If uncertain about a specific value or formula,
+      use a general description ("a measurable drop in temperature") — never invent a number.
+  2b. What term did the student use? Exact match, near-synonym, or wrong?
+      Near-synonym = wrong. Name BOTH terms and their distinguishing condition in the NPC's dialogue.
+  2c. Every specific value, substance, or date you put in [STORY] must come from the blueprint's
+      topic_research or material — not from inference or memory. If it's not in the blueprint, don't state it.
 
 STEP 3 — CHECK HISTORY.
-Do NOT repeat any scene detail, NPC line, clue, or phrasing from the conversation history.
+Read the conversation above. Do NOT repeat any scene detail, NPC line, clue, or phrasing.
+Do NOT repeat any concept from "CONCEPTS ALREADY TESTED".
 
 STEP 4 — DECIDE: ADVANCE OR STAY.
-IF the student demonstrated the required knowledge from the active move's "expected_student_response":
-  → ADVANCE. Use the "if_correct" next move to determine what the detective gains access to next.
-    Describe what new fact, location, or witness becomes available — be specific.
-IF the student's answer was wrong, vague, or used the wrong term:
-  → STAY. Use the "if_incorrect" next move as context for the complication.
-    State what specific lead just became unavailable, then re-embed the same knowledge requirement
-    using different evidence (different NPC, instrument, physical detail).
+IF the student demonstrated the knowledge from ACTIVE MOVE's expected_student_response → ADVANCE.
+  Route forward using if_correct. Show what the detective gains access to next.
+IF the student's answer was wrong, vague, or used the wrong term → STAY.
+  Route using if_incorrect. Re-embed the SAME concept in new evidence (different NPC, instrument, or clue).
 
-STEP 5 — WRITE YOUR RESPONSE in the mandatory four-section format:
-
-[FEEDBACK]
-Direct, honest verdict on the student's answer. One sentence. Name what was right or missing.
-Verify: is every claim in your feedback factually accurate? If unsure, be vaguer rather than wrong.
+STEP 5 — WRITE YOUR RESPONSE.
+⚠ Write all content in the session language from the case file (check "session.language"). ⚠
 
 [STORY]
-2–4 sentences of narration or NPC dialogue. Must contain:
-(a) at least one named, measurable clue (value, substance, timestamp, quantity)
-(b) the next concept or process BY NAME — stated explicitly, not hinted at
-(c) a consequence of the detective's last action (advance or complication)
-Verify: is every fact in your narration correct? No invented values, no wrong mechanisms.
+Open with the character's natural in-story reaction to the detective's answer.
+If correct: NPC confirms using the exact term, advances the scene with new specific information.
+If wrong: NPC shows the consequence, uses the correct term in dialogue, re-embeds the concept.
+Then 2–3 more sentences: at least one named clue from the blueprint, and the NEXT concept by name.
+Verify: every fact must be traceable to the blueprint. No invented values.
 
-[QUESTION]  ← MANDATORY. DO NOT OMIT. THIS MUST APPEAR IN EVERY RESPONSE.
-One clean exam-style practice question on the concept just tested.
-No story wrapper. Calibrated to the session's school level and difficulty.
-Use the precise technical term in the question — never the colloquial substitute.
+[QUESTION]  ← MANDATORY. DO NOT OMIT.
+One exam-style question on the ACTIVE MOVE's expected_student_response concept.
+Must be different from every question already in the conversation history.
+No story wrapper. Use the precise technical term.
 
 [STATE]  ← MANDATORY LAST LINE. ONE WORD ONLY.
-ADVANCE  (if the student answered correctly)
-STAY     (if the student answered incorrectly or vaguely)
-CLOSE    (only if this is the final move AND the student answered correctly)
+ADVANCE  (student answered correctly)
+STAY     (student answered incorrectly or vaguely)
+CLOSE    (final move AND student answered correctly)

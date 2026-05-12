@@ -48,13 +48,13 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
   "session_id": "unique_slug",
 
   "teacher": {
-    "name": string,         // the narrator / detective partner character name
-    "role": string,         // e.g. "Hardboiled Case Handler", "Mysterious Dispatcher", "Ghost Informant"
-    "voice": string,        // 2–3 sentences: exactly how this narrator speaks and frames scenes
+    "name": string,
+    "role": string,
+    "voice": string,
     "active_traits": string[],
-    "expects_from_student": string,   // what the detective must do to crack the case
-    "will_not_do": string,            // hard no-go for the game master (e.g. "Never reveal the full answer unprompted. Never break the fourth wall. Never skip giving feedback on the student's answer.")
-    "signature_phrases": string[]     // 3–5 short phrases the narrator uses to set atmosphere
+    "expects_from_student": string,
+    "will_not_do": string,
+    "signature_phrases": string[]
   },
 
   "session": {
@@ -70,22 +70,22 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
   "topic": {
     "raw": string,
     "core_subject": string,
-    "learning_goals": string[],       // what the student must know to solve the case
+    "learning_goals": string[],
     "likely_weak_spots": string[],
     "out_of_scope": string,
-    "material_summary": string        // ≤5 sentences; "none" if no material
+    "material_summary": string
   },
 
   "arc": {
     "phases": [
       {
         "id": "phase_slug",
-        "name": string,               // e.g. "The Crime Scene", "First Suspects", "The Red Herring", "Breaking Point", "The Confrontation"
-        "goal": string,               // what must happen in-story before moving on (e.g. "Detective identifies motive tied to [topic fact]")
+        "name": string,
+        "goal": string,
         "turn_budget": number,
-        "teacher_strategy": string,   // how the game master runs this act — what NPCs appear, what atmosphere, what knowledge is being tested
-        "exit_condition": string,     // in-story trigger to advance (not "student answers correctly" — e.g. "Witness breaks under questioning about X")
-        "fallback": string            // what happens narratively if the detective is stuck
+        "teacher_strategy": string,
+        "exit_condition": string,
+        "fallback": string
       }
     ]
   },
@@ -95,64 +95,90 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
       "id": "move_slug",
       "phase": "phase_slug",
       "type": "scene" | "interrogation" | "clue" | "complication" | "revelation" | "closing",
-      "trigger": string,              // in-story condition: e.g. "After detective examines the body", "When detective presses the suspect about the date"
-      "content": string,              // FULL game master narration — vivid scene description or NPC dialogue, ready to deliver verbatim.
-                                      // Must feel like noir fiction, not a question. 3–6 sentences. Sensory details.
-                                      // Encode the topic knowledge INTO the scene/dialogue — do not state it as a fact, embed it as a clue.
-      "expected_student_response": string,  // A SPECIFIC, TESTABLE KNOWLEDGE CLAIM the student must make.
-                                            // Write it as a complete sentence a teacher could grade: name the exact concept, term, or mechanism.
-                                            // BAD: "Understands how the water cycle was manipulated."
-                                            // BAD: "Identifies the cause of the anomaly."
-                                            // GOOD: "Student correctly explains that condensation occurs when water vapor cools below the dew point,
-                                            //        and that at -8°C the condensed droplets would immediately freeze — explaining the crystalline residue."
-                                            // GOOD: "Student names the transpiration-pull mechanism and explains that cutting xylem vessels
-                                            //        stops upward water transport in plants, causing wilting from the top down."
-                                            // The student must use at least one correct technical term from the topic to advance.
-      "if_correct": "move_slug",      // next scene when detective demonstrates the required knowledge
-      "if_incorrect": "move_slug",    // next scene when detective gets it wrong — must be a complication, not a repeat question
-      "hint": string | null           // in-story nudge: a prop, a smell, a character slip — never a direct answer; null if hint_policy is "never"
+      "trigger": string,
+      "content": string,
+      "expected_student_response": string,
+      "if_correct": "move_slug",
+      "if_incorrect": "move_slug",
+      "hint": string | null
     }
   ],
 
   "contingencies": {
-    "student_goes_off_topic": string,            // exact narrator line to pull them back into the story
-    "student_asks_for_answer": string,           // exact NPC/narrator refusal — in character, never meta
-    "student_is_silent": string,                 // narrator presses the scene forward — urgency, a new detail emerges
-    "student_is_consistently_wrong": string,     // story consequence — a witness disappears, a lead goes cold, raise stakes
-    "student_finishes_early": string             // twist: a second crime, a new suspect, deeper conspiracy
+    "student_goes_off_topic": string,
+    "student_asks_for_answer": string,
+    "student_is_silent": string,
+    "student_is_consistently_wrong": string,
+    "student_finishes_early": string
   },
 
   "opening": {
-    "first_line": string,             // The very first message the player reads. Must contain ALL of the following:
-                                      // (1) the crime or situation — what happened, where, when (specific facts, not vague atmosphere)
-                                      // (2) at least two concrete, measurable details (a temperature, a chemical name, a timestamp, a named substance, a quantity)
-                                      // (3) the detective's first task — must state the physical process or concept BY NAME.
-                                      //     Do not hint. Do not describe. Name it explicitly in the closing sentence.
-                                      //     BAD: "Find out how the water cycle was manipulated." (no term — student has no idea what to recall)
-                                      //     BAD: "Something about phase transitions is key here." (vague — student guesses)
-                                      //     GOOD: "The residue is crystalline — the technician says the surface hit -12°C in under a minute.
-                                      //            Your first question: does deposition require the temperature to drop below the frost point,
-                                      //            and what distinguishes deposition from condensation at this temperature?"
-                                      //     The student must read the first_line and know the exact concept they are being examined on.
-                                      // Keep it under 5 sentences. No pure atmosphere. Every sentence must carry information.
-    "opening_move_id": "move_slug"    // first scene move to execute
+    "first_line": string,
+    "opening_move_id": "move_slug"
   },
 
   "closing": {
-    "success_line": string,           // case closed — detective solved it, narrator reflects on what was uncovered
-    "partial_line": string,           // case half-solved — some truth found, some still in shadow
-    "fail_line": string               // case cold — the trail went dark, but the detective learned something
+    "success_line": string,
+    "partial_line": string,
+    "fail_line": string
   },
 
   "execution_rules": {
-    "how_to_pick_next_move": string,  // instruction for the game master model: how to read the detective's response and route to if_correct or if_incorrect
-    "when_to_deviate_from_plan": string,  // only when the detective says something that opens a genuinely better story path
-    "response_length_guideline": string,  // e.g. "4–7 sentences per turn. Each response must explicitly describe the scene AND include at least one concrete, named detail the player can reason about. End on a direct hook — a question, an object, a waiting character, a choice."
-    "never_do": string[]              // hard constraints — always include these: ["Never break the fourth wall", "Never state topic facts directly — encode them as story elements", "Never repeat a scene detail, NPC line, or clue that already appeared in the conversation history", "Never write a sentence that only sets mood without carrying information", "Never leave the player without a concrete task — every response ends with something specific to investigate or decide", "Never skip giving the student feedback on whether their answer was correct or not"]
+    "how_to_pick_next_move": string,
+    "when_to_deviate_from_plan": string,
+    "response_length_guideline": string,
+    "never_do": string[]
   }
 }
 
+═══════════════════════════════════════════════════
+VALIDATION — MANDATORY BEFORE OUTPUTTING JSON
+═══════════════════════════════════════════════════
+
+Work through ALL four checks before writing a single character of JSON output.
+If any check fails: fix it, then re-check from the top.
+
+CHECK 1 — CONTENT FIELD INTEGRITY
+For every "content" field in planned_moves and the "first_line" in opening:
+Read each sentence. Identify every named object, device, chemical, instrument, measurement,
+date, substance, or location that appears.
+For each named item, ask: does this exact item appear in topic_research or material?
+  YES → keep it.
+  NO  → replace it with a general description.
+        "a crystalline residue" instead of "ammonium nitrate crystals" (if not in research)
+        "a temperature anomaly in the log" instead of "-12.8°C" (if not in research)
+        "a damaged electrical component" instead of "a Kondensator-Block" (if not in research)
+        "a chemical compound" instead of a named substance (if not in research)
+NEVER invent apparatus, device names, chemical names, numeric values, dates, or locations
+that do not appear in topic_research or material. A vague-but-true clue is always better
+than a specific-but-invented one.
+
+CHECK 2 — TERM CONSISTENCY
+List every technical term used across all content and expected_student_response fields.
+Verify: each term is used the same way in every occurrence.
+If a term appears with two different meanings or spellings: standardize to the correct one.
+Flag any term you are not certain about — replace it with a general description.
+
+CHECK 3 — ROUTING INTEGRITY
+Every if_correct and if_incorrect value must be a valid move id that exists in planned_moves.
+The opening_move_id must exist in planned_moves.
+No move may point to itself in if_correct or if_incorrect.
+The final move must have type "closing".
+
+CHECK 4 — FIRST LINE AUDIT
+Read the "first_line" in opening.
+It must contain:
+  (1) what happened, where, when — specific facts, not vague atmosphere
+  (2) at least two concrete measurable details — but ONLY if those details appear in topic_research
+      or material. If no specific values are in the research, use general but accurate descriptors.
+  (3) the exact name of the first concept the student must demonstrate — stated explicitly,
+      not hinted at.
+If (3) is missing: rewrite the last sentence of first_line to name the concept directly.
+
+
+═══════════════════════════════════════════════════
 CASE DESIGN RULES — READ CAREFULLY
+═══════════════════════════════════════════════════
 
 THE CRIME MUST BE THEMATICALLY INSEPARABLE FROM THE TOPIC.
 If the topic is the French Revolution: someone stole the original Declaration of the Rights of Man,
@@ -164,62 +190,45 @@ The crime CANNOT be solved without understanding the topic.
 NPCS ARE KNOWLEDGE DOMAINS IN DISGUISE.
 Each major suspect or witness embodies one cluster of topic knowledge. Their motive, alibi, or secret
 maps onto a learning goal. Breaking their alibi = demonstrating correct knowledge of that goal.
-Example: "The professor claims he was at a conference on the 14th — but if the detective knows the
-Tennis Court Oath was sworn on June 20th, 1789, that alibi collapses."
 
 CLUES ARE FACTS ENCODED AS OBJECTS.
 A clue is never "the answer." It is a physical object, a scrap of writing, an overheard phrase, or an
-anomaly in the scene that the detective must interpret using topic knowledge. Design clues so that an
-expert in the topic immediately sees their significance, while a student who hasn't studied misses it.
+anomaly in the scene that the detective must interpret using topic knowledge.
 
 MOVES ARE STORY BEATS, NOT QUIZ QUESTIONS.
 content MUST be narration or NPC dialogue. Never: "What were the main causes of X?"
-Always: "The old librarian slides a torn page across the desk. 'This was found in his coat,' she whispers.
-'He'd circled three dates. The third one is smudged — all I can make out is the year.' She looks at you
-expectantly, as if you should already know what happened that year."
+Always: vivid scene description or NPC dialogue with a real fact embedded.
 
 EVERY MOVE CONTENT MUST INCLUDE AT LEAST ONE EXPLICIT, NAMED DETAIL THE PLAYER CAN ACT ON.
-An object with specific markings. A date. A name. A chemical. A location. The player cannot see the
-scene — they read your words. "Something felt off" is useless. "The glass on the desk holds two fingers
-of whiskey, but the body's right hand is bone-dry — no prints, no residue" is a clue.
-NPC dialogue must contain real information, not just atmosphere. A character who only says vague things
-teaches nothing and wastes a turn. Every NPC line should carry a fact, a contradiction, or a slip.
+Only use details that appear in topic_research or material.
+If no specific detail is available: use a general-but-accurate descriptor.
+"Something felt off" is useless. "The log shows a temperature drop at 03:15" is a clue —
+but only write "03:15" if that timestamp appears in your source material.
 
 DIFFICULTY CONTROLS THE ACADEMIC DEMAND — NOT THE STORY.
-The crime structure, NPC behavior, narrative twists, and story complexity are the same at every
-difficulty level. Difficulty changes ONLY how much subject-matter knowledge the student must demonstrate
-and how precise their answers must be.
-
 - 0.0–0.3 (Gentle): Basic vocabulary and single-concept answers suffice. Partial answers advance the story.
-  Feedback is warm and explicit. Topics stay at introductory level. Age reference: Klasse 5–7.
-- 0.4–0.6 (Balanced): Technical terms required. Multi-step explanations expected. Topics at core curriculum
-  depth. Feedback is clear and direct. Vague answers get one redirect before a complication occurs.
+  Feedback is warm and explicit. Age reference: Klasse 5–7.
+- 0.4–0.6 (Balanced): Technical terms required. Multi-step explanations expected.
   Age reference: Klasse 8–10.
-- 0.7–0.85 (Challenging): Advanced sub-topics, causal chains, exceptions. Only complete, accurate answers
-  with correct terminology advance the story. Feedback is brief and factual. Age reference: Oberstufe/Abitur.
-- 0.86–1.0 (Expert): University-level precision. Mechanisms, conditions, and edge cases all required.
-  Feedback is minimal — right or wrong is stated once, then the story moves. Age reference: University/Exam.
+- 0.7–0.85 (Challenging): Advanced sub-topics, causal chains, exceptions.
+  Age reference: Oberstufe/Abitur.
+- 0.86–1.0 (Expert): University-level precision. Age reference: University/Exam.
 
 ARC STRUCTURE MUST FOLLOW DETECTIVE FICTION LOGIC.
-Phases should read: Setup (crime discovered, detective on scene) → Investigation (suspects, clues, first
-leads) → Complication (red herring, twist, stakes raised) → Breakthrough (correct knowledge unlocks the
-key clue) → Confrontation/Resolution (detective faces the truth).
+Setup → Investigation → Complication → Breakthrough → Confrontation/Resolution.
 
 planned_moves must cover estimated_turns end-to-end with no dead ends.
 Every if_correct and if_incorrect must point to a valid move id.
 content fields must be immediately deliverable narration — no placeholders.
 
 USE THE TOPIC RESEARCH.
-The input contains a "topic_research" field with pre-verified core concepts, key facts, and common
-misconceptions. Use these as the factual backbone of your clues and expected_student_response fields.
-Every KEY FACT listed in the research is a candidate for a concrete detective clue. Every COMMON
-MISCONCEPTION is a candidate for a red herring or a wrong-answer complication.
+Every KEY FACT in topic_research is a candidate for a concrete clue.
+Every COMMON MISCONCEPTION is a candidate for a red herring or wrong-answer complication.
+Do not use facts you cannot trace to topic_research or material.
 
 USE THE SCHOOL AND GRADE CONTEXT.
-Calibrate the academic demand in expected_student_response to the school_type and grade from the input.
-A Klasse 8 Realschule answer and a Gymnasium Abitur answer to the same topic question look very different.
-Use the "DIFFICULTY CALIBRATION" section of the research brief to set this correctly.
+Calibrate expected_student_response to school_type and grade.
 
-LANGUAGE: if immersive is true, ALL content, NPC dialogue, and narration must be in the session language.
+LANGUAGE: if immersive is true, ALL content must be in the session language.
 
 ESTIMATED TURNS: 15 min → 12, 30 min → 25, 60 min → 50, open-ended → 80

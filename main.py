@@ -21,8 +21,8 @@ _OPTS_BLUEPRINT = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
                    "repeat_penalty": 1.10, "num_predict": 10000}
 _OPTS_VALIDATE  = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
                    "repeat_penalty": 1.00, "num_predict": 512}
-_OPTS_CHAT      = {"temperature": 0.45, "top_p": 0.90, "top_k": 50,
-                   "repeat_penalty": 1.10, "num_predict": 600}
+_OPTS_CHAT      = {"temperature": 0.35, "top_p": 0.88, "top_k": 45,
+                   "repeat_penalty": 1.15, "num_predict": 1000}
 
 # ── Blueprint dataclasses ────────────────────────────────────────
 
@@ -230,6 +230,7 @@ def run_teacher_agent(
     user_prompt: str,
     current_move: "Move | None",
     history: list["ChatMessage"] | None = None,
+    visited_move_ids: list[str] | None = None,
 ) -> tuple[str, str]:
     """Returns (clean_reply_without_STATE, state_signal) where
     state_signal is 'ADVANCE', 'STAY', or 'CLOSE'."""
@@ -260,6 +261,15 @@ def run_teacher_agent(
     )
     is_closing_move = current_move and current_move.type == "closing"
 
+    # Build list of already-tested concepts so the teacher doesn't repeat them
+    visited_ids = visited_move_ids or []
+    already_tested_lines = []
+    for mid in visited_ids:
+        m = blueprint.get_move(mid)
+        if m and m.id != (current_move.id if current_move else None):
+            already_tested_lines.append(f"- [{m.id}] {m.expected_student_response}")
+    already_tested = "\n".join(already_tested_lines) if already_tested_lines else "(none yet)"
+
     user_template = _load_prompt("teacher_user_prompt.txt")
     user_message = user_template.format(
         blueprint_json=blueprint_json,
@@ -268,13 +278,16 @@ def run_teacher_agent(
         current_move_json=current_move_json,
         is_closing_move="YES — this is the final move. Use CLOSE if the student answers correctly."
                         if is_closing_move else "NO",
+        already_tested=already_tested,
     )
 
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
 
-    # Extract [STATE] signal and strip it from the visible reply
+    # Extract [STATE] signal — accept variations: "[STATE]\nADVANCE", "[STATE]: ADVANCE", etc.
     state = "STAY"
-    state_match = re.search(r"\[STATE\]\s*(ADVANCE|STAY|CLOSE)", raw, re.IGNORECASE)
+    state_match = re.search(
+        r"\[STATE\][:\s]*\n?\s*(ADVANCE|STAY|CLOSE)", raw, re.IGNORECASE
+    )
     if state_match:
         state = state_match.group(1).upper()
         raw = raw[:state_match.start()].rstrip()
@@ -377,9 +390,10 @@ _session_state: dict[str, dict] = {}
 def _init_state(blueprint: SessionBlueprint) -> dict:
     return {
         "current_move_id": blueprint.opening.opening_move_id,
-        "turn_count":      0,
-        "correct_count":   0,
-        "closed":          False,
+        "visited_move_ids": [],   # ordered list of moves the student has passed through
+        "turn_count":       0,
+        "correct_count":    0,
+        "closed":           False,
     }
 
 def _phase_index_for_move(blueprint: SessionBlueprint, move_id: str) -> int:
@@ -449,7 +463,8 @@ def chat(req: ChatRequest):
 
     try:
         reply, signal = run_teacher_agent(
-            blueprint, req.message, current_move, req.history
+            blueprint, req.message, current_move, req.history,
+            visited_move_ids=state.get("visited_move_ids", []),
         )
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
@@ -457,12 +472,17 @@ def chat(req: ChatRequest):
     # Hints never advance state
     if not is_hint:
         state["turn_count"] += 1
+        if current_move and current_move.id not in state["visited_move_ids"]:
+            state["visited_move_ids"].append(current_move.id)
         if signal == "ADVANCE":
             state["correct_count"] += 1
             if signal == "CLOSE" or (current_move and current_move.type == "closing"):
                 state["closed"] = True
             elif current_move and current_move.if_correct:
-                state["current_move_id"] = current_move.if_correct
+                next_id = current_move.if_correct
+                state["current_move_id"] = next_id
+                if next_id not in state["visited_move_ids"]:
+                    state["visited_move_ids"].append(next_id)
         elif signal == "CLOSE":
             state["closed"] = True
         else:  # STAY

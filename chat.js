@@ -166,25 +166,17 @@ const TEACHER_ICON =
   `</svg>`;
 
 function parseTeacherReply(text) {
-  const fbMatch = text.match(/\[FEEDBACK\]\s*([\s\S]*?)(?=\[STORY\]|\[QUESTION\]|$)/i);
-  const stMatch = text.match(/\[STORY\]\s*([\s\S]*?)(?=\[FEEDBACK\]|\[QUESTION\]|$)/i);
-  const qMatch  = text.match(/\[QUESTION\]\s*([\s\S]*?)(?=\[FEEDBACK\]|\[STORY\]|$)/i);
-  const feedback = fbMatch ? fbMatch[1].trim() : null;
+  const stMatch = text.match(/\[STORY\]\s*([\s\S]*?)(?=\[QUESTION\]|$)/i);
+  const qMatch  = text.match(/\[QUESTION\]\s*([\s\S]*?)(?=\[STATE\]|$)/i);
   const story    = stMatch ? stMatch[1].trim() : null;
   const question = qMatch  ? qMatch[1].trim()  : null;
   // Fall back to raw text if the model didn't use the structured format
-  if (!feedback && !story && !question) return { story: text.trim() };
-  return { feedback, story, question };
+  if (!story && !question) return { story: text.trim() };
+  return { story, question };
 }
 
 function renderBubble(bubble, sections) {
   bubble.innerHTML = "";
-  if (sections.feedback) {
-    const fb = document.createElement("div");
-    fb.className = "bubble-feedback";
-    fb.textContent = sections.feedback;
-    bubble.appendChild(fb);
-  }
   if (sections.story) {
     const st = document.createElement("div");
     st.className = "bubble-story";
