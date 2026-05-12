@@ -165,6 +165,40 @@ const TEACHER_ICON =
   `<path d="M16 100c0-20 15-36 34-36s34 16 34 36z"/>` +
   `</svg>`;
 
+function parseTeacherReply(text) {
+  const fbMatch = text.match(/\[FEEDBACK\]\s*([\s\S]*?)(?=\[STORY\]|\[QUESTION\]|$)/i);
+  const stMatch = text.match(/\[STORY\]\s*([\s\S]*?)(?=\[FEEDBACK\]|\[QUESTION\]|$)/i);
+  const qMatch  = text.match(/\[QUESTION\]\s*([\s\S]*?)(?=\[FEEDBACK\]|\[STORY\]|$)/i);
+  const feedback = fbMatch ? fbMatch[1].trim() : null;
+  const story    = stMatch ? stMatch[1].trim() : null;
+  const question = qMatch  ? qMatch[1].trim()  : null;
+  // Fall back to raw text if the model didn't use the structured format
+  if (!feedback && !story && !question) return { story: text.trim() };
+  return { feedback, story, question };
+}
+
+function renderBubble(bubble, sections) {
+  bubble.innerHTML = "";
+  if (sections.feedback) {
+    const fb = document.createElement("div");
+    fb.className = "bubble-feedback";
+    fb.textContent = sections.feedback;
+    bubble.appendChild(fb);
+  }
+  if (sections.story) {
+    const st = document.createElement("div");
+    st.className = "bubble-story";
+    st.textContent = sections.story;
+    bubble.appendChild(st);
+  }
+  if (sections.question) {
+    const q = document.createElement("div");
+    q.className = "bubble-question";
+    q.textContent = sections.question;
+    bubble.appendChild(q);
+  }
+}
+
 function addTeacherMessage(text) {
   const el = document.createElement("div");
   el.className = "msg teacher";
@@ -177,7 +211,9 @@ function addTeacherMessage(text) {
       `</div>` +
       `<div class="bubble"></div>` +
     `</div>`;
-  el.querySelector(".bubble").textContent = text;
+  const bubble = el.querySelector(".bubble");
+  const sections = parseTeacherReply(text);
+  renderBubble(bubble, sections);
   feedEl.appendChild(el);
   scrollBottom();
   return el;
@@ -305,6 +341,10 @@ async function sendMessage() {
       }
     }
 
+    if (data.closed) {
+      closeSession(data.closing_line);
+    }
+
   } catch (err) {
     removeTyping();
     addTeacherMessage("[Connection error: " + err.message + "]");
@@ -347,6 +387,42 @@ document.getElementById("hint-btn").addEventListener("click", async () => {
     inputEl.focus();
   }
 });
+
+/* ---- closing sequence ---- */
+function closeSession(closingLine) {
+  // Disable input
+  inputEl.disabled = true;
+  sendBtnEl.disabled = true;
+  document.getElementById("hint-btn").disabled = true;
+
+  // Show closing marker
+  addDayMarker("Case closed");
+
+  // Render closing message in a special styled bubble
+  if (closingLine) {
+    const el = document.createElement("div");
+    el.className = "msg teacher closing";
+    el.innerHTML =
+      `<div class="av">${TEACHER_ICON}</div>` +
+      `<div class="body">` +
+        `<div class="meta">` +
+          `<span class="name">${escapeHtml(blueprint.teacher.name)}</span>` +
+          `<span class="time">${nowHHMM()}</span>` +
+        `</div>` +
+        `<div class="bubble bubble-closing">${escapeHtml(closingLine)}</div>` +
+      `</div>`;
+    feedEl.appendChild(el);
+    scrollBottom();
+  }
+
+  // Show return button
+  const bar = document.querySelector(".composer-wrap");
+  const returnBtn = document.createElement("a");
+  returnBtn.href = "/";
+  returnBtn.className = "btn btn-return";
+  returnBtn.textContent = "Return to library";
+  bar.appendChild(returnBtn);
+}
 
 /* ---- end session ---- */
 document.getElementById("end-btn").addEventListener("click", () => {

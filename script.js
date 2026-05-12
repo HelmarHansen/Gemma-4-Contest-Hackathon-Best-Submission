@@ -60,11 +60,13 @@ async function send() {
             traits:      [...document.querySelectorAll('.trait.on')].map(t => t.textContent.trim()),
         },
         lesson: {
-            topic:      document.getElementById('topic-ta').value.trim(),
-            mode:       document.querySelector('.seg-item.on')?.textContent.trim() ?? '',
-            language:   document.getElementById('lesson-language').value,
-            length:     document.getElementById('lesson-length').value,
-            difficulty: difficultyPct / 100,
+            topic:       document.getElementById('topic-ta').value.trim(),
+            mode:        document.querySelector('.seg-item.on')?.textContent.trim() ?? '',
+            language:    document.getElementById('lesson-language').value,
+            length:      document.getElementById('lesson-length').value,
+            difficulty:  difficultyPct / 100,
+            school_type: document.getElementById('lesson-school-type').value,
+            grade:       document.getElementById('lesson-grade').value,
         },
         material: '',
     };

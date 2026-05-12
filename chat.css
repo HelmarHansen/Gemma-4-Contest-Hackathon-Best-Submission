@@ -432,9 +432,10 @@ body {
   line-height: 1.6;
   font-size: 14.5px;
   transition: background .8s ease, color .8s ease, border-color .8s ease;
-  white-space: pre-wrap;
   word-break: break-word;
 }
+/* user bubbles keep pre-wrap; teacher bubbles are structured */
+.msg.user .bubble { white-space: pre-wrap; }
 .msg.teacher .bubble {
   background: var(--teacher-bubble);
   color: var(--teacher-ink);
@@ -446,6 +447,50 @@ body {
   color: var(--user-ink);
   border-top-right-radius: 4px;
   box-shadow: var(--shadow-2);
+}
+
+/* ── Structured teacher message sections ── */
+.bubble-feedback {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--teacher-accent);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.5;
+  transition: color .8s ease, border-color .8s ease;
+}
+
+.bubble-story {
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-question {
+  margin-top: 12px;
+  padding: 10px 13px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-dim);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  transition: background .8s ease, border-color .8s ease;
+}
+
+.bubble-question::before {
+  content: "Practice · ";
+  font-style: normal;
+  font-weight: 600;
+  color: var(--accent-2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color .8s ease;
 }
 
 /* typing indicator */
@@ -551,6 +596,38 @@ body {
   border: 1px solid var(--line);
   margin: 0 2px;
 }
+
+/* ── Closing bubble ── */
+.bubble-closing {
+  background: color-mix(in srgb, var(--accent) 14%, var(--teacher-bubble));
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  font-family: "Instrument Serif", serif;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 0 32px -8px var(--glow), var(--shadow-2);
+}
+
+.btn-return {
+  display: block;
+  max-width: 820px;
+  margin: 16px auto 0;
+  padding: 13px 0;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 70%, black));
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 8px 24px -10px var(--glow);
+  transition: filter .15s ease, transform .15s ease;
+}
+.btn-return:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 /* ====================================================
    RESPONSIVE
