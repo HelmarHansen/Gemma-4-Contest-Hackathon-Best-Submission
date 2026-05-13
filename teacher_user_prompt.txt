@@ -2,7 +2,7 @@ CASE FILE (for your eyes only):
 {blueprint_json}
 
 ════════════════════════════════════════
-ACTIVE MOVE — THIS IS THE ONLY MOVE YOU ARE WORKING ON RIGHT NOW:
+ACTIVE MOVE — THE ONLY MOVE YOU ARE WORKING ON RIGHT NOW:
 {current_move_json}
 
 Is this the final (closing) move? {is_closing_move}
@@ -18,49 +18,64 @@ DETECTIVE'S LATEST INPUT:
 {user_prompt}
 
 ────────────────────────────────────────────────
-MANDATORY STEPS — WORK THROUGH ALL OF THEM:
+MANDATORY STEPS — WORK THROUGH ALL:
 ────────────────────────────────────────────────
 
 STEP 1 — ANCHOR TO THE ACTIVE MOVE.
 Read "expected_student_response" from the ACTIVE MOVE above.
 That is the ONE concept being tested right now. Nothing else.
-Do NOT use anything from the "CONCEPTS ALREADY TESTED" list — those are finished.
-The [QUESTION] you write MUST test exactly the concept in expected_student_response,
-and it MUST NOT repeat any question already asked in the conversation history.
+Do NOT revisit anything from "CONCEPTS ALREADY TESTED".
+The [QUESTION] you write is the ADVANCE GATE — it tests exactly the concept in
+expected_student_response. A correct answer to that question on the NEXT TURN = ADVANCE.
+Do NOT repeat any question already in the conversation history.
 
 STEP 2 — PRECISION CHECK.
-  2a. Name the exact correct term for the process in the ACTIVE MOVE (one word or short phrase).
-      Only use terms you are certain are correct. If uncertain about a specific value or formula,
-      use a general description ("a measurable drop in temperature") — never invent a number.
+  2a. Name the EXACT correct term for the concept in the ACTIVE MOVE.
+      Only use terms you are certain about. If uncertain about a specific value or formula:
+      use a general description — never invent a number.
   2b. What term did the student use? Exact match, near-synonym, or wrong?
-      Near-synonym = wrong. Name BOTH terms and their distinguishing condition in the NPC's dialogue.
-  2c. Every specific value, substance, or date you put in [STORY] must come from the blueprint's
-      topic_research or material — not from inference or memory. If it's not in the blueprint, don't state it.
+      Near-synonym = wrong. Name BOTH terms and their distinguishing condition in NPC dialogue.
+  2c. Every specific value, substance, or date in [NARRATION] or [NPC:…] must be traceable
+      to the blueprint's topic_research or material. If not there: do not state it.
 
 STEP 3 — CHECK HISTORY.
-Read the conversation above. Do NOT repeat any scene detail, NPC line, clue, or phrasing.
-Do NOT repeat any concept from "CONCEPTS ALREADY TESTED".
+Read the conversation above.
+Do NOT repeat any scene detail, NPC line, clue, or phrasing from prior turns.
+Do NOT revisit any concept from "CONCEPTS ALREADY TESTED".
 
 STEP 4 — DECIDE: ADVANCE OR STAY.
-IF the student demonstrated the knowledge from ACTIVE MOVE's expected_student_response → ADVANCE.
-  Route forward using if_correct. Show what the detective gains access to next.
+IF the student demonstrated the knowledge from the ACTIVE MOVE's expected_student_response → ADVANCE.
+  Show what the detective gains access to next (new witness, new location, new evidence).
 IF the student's answer was wrong, vague, or used the wrong term → STAY.
-  Route using if_incorrect. Re-embed the SAME concept in new evidence (different NPC, instrument, or clue).
+  Re-embed the SAME concept in new evidence (different NPC, angle, or location).
 
 STEP 5 — WRITE YOUR RESPONSE.
-⚠ Write all content in the session language from the case file (check "session.language"). ⚠
+⚠ Write all content in the session language from "session.language" in the case file. ⚠
 
-[STORY]
-Open with the character's natural in-story reaction to the detective's answer.
-If correct: NPC confirms using the exact term, advances the scene with new specific information.
-If wrong: NPC shows the consequence, uses the correct term in dialogue, re-embeds the concept.
-Then 2–3 more sentences: at least one named clue from the blueprint, and the NEXT concept by name.
-Verify: every fact must be traceable to the blueprint. No invented values.
+[NARRATION]
+Third-person scene description. No dialogue here.
+Open with the scene's reaction to the detective's answer — correct or wrong — embedded in the world.
+If correct: the environment opens something (a door, a record, a witness who steps forward).
+If wrong: something closes (a witness goes quiet, access is blocked).
+Then 2–3 sentences: at least one NAMED, CONCRETE fact traceable to topic_research or material.
+Not "a strange residue" — a named mechanism, substance, reading, or anomaly.
+Final sentence: explicitly state the concept under examination — named, not hinted.
+Narrator is ALWAYS third person. Never "I" or "you."
+
+[NPC:ExactCharacterName]
+← Use the exact character name from the blueprint's "characters" array.
+This character's first-person voice reacting to the detective's answer.
+If correct: confirm using the exact term, reveal something new.
+If wrong: show consequence, use the correct term in-dialogue, name how it differs from the wrong term.
+Every sentence carries information. No filler.
+
+(Add more [NPC:Name] blocks if other characters are present or react in this scene.)
 
 [QUESTION]  ← MANDATORY. DO NOT OMIT.
 One exam-style question on the ACTIVE MOVE's expected_student_response concept.
-Must be different from every question already in the conversation history.
+Different from every question already in the conversation history.
 No story wrapper. Use the precise technical term.
+Calibrate to school level and difficulty from the case file.
 
 [STATE]  ← MANDATORY LAST LINE. ONE WORD ONLY.
 ADVANCE  (student answered correctly)

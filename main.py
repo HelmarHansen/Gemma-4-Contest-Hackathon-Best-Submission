@@ -4,6 +4,7 @@ import dataclasses
 import requests
 from dataclasses import dataclass, field, asdict
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -13,18 +14,28 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL      = "gemma4"
 
 # ── Ollama parameter presets ─────────────────────────────────────
-# Lower temperature = less hallucination; higher = more creative prose.
-# num_predict caps token output to keep responses fast.
 _OPTS_RESEARCH  = {"temperature": 0.15, "top_p": 0.85, "top_k": 30,
                    "repeat_penalty": 1.05, "num_predict": 1024}
 _OPTS_BLUEPRINT = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
-                   "repeat_penalty": 1.10, "num_predict": 10000}
+                   "repeat_penalty": 1.10, "num_predict": 12000}
 _OPTS_VALIDATE  = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
                    "repeat_penalty": 1.00, "num_predict": 512}
-_OPTS_CHAT      = {"temperature": 0.35, "top_p": 0.88, "top_k": 45,
-                   "repeat_penalty": 1.15, "num_predict": 1000}
+_OPTS_CHAT      = {"temperature": 0.30, "top_p": 0.88, "top_k": 45,
+                   "repeat_penalty": 1.20, "num_predict": 1500}
 
 # ── Blueprint dataclasses ────────────────────────────────────────
+
+@dataclass
+class Character:
+    id:               str = ""
+    name:             str = ""
+    role:             str = ""
+    personality:      str = ""
+    voice:            str = ""
+    knowledge:        str = ""
+    secrets:          str = ""
+    ignorant_of:      str = ""
+    appears_in_moves: list[str] = field(default_factory=list)
 
 @dataclass
 class Teacher:
@@ -111,17 +122,23 @@ class SessionBlueprint:
     topic:           Topic
     phases:          list[Phase]
     moves:           list[Move]
+    characters:      list[Character]
     contingencies:   Contingencies
     opening:         Opening
     closing:         Closing
     execution_rules: ExecutionRules
-    _move_index: dict[str, Move] = field(default_factory=dict, repr=False)
+    _move_index: dict[str, Move]      = field(default_factory=dict, repr=False)
+    _char_index: dict[str, Character] = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
         self._move_index = {m.id: m for m in self.moves}
+        self._char_index = {c.id: c for c in self.characters}
 
     def get_move(self, move_id: str) -> Move | None:
         return self._move_index.get(move_id)
+
+    def get_character(self, char_id: str) -> Character | None:
+        return self._char_index.get(char_id)
 
     def get_opening_move(self) -> Move | None:
         return self.get_move(self.opening.opening_move_id)
@@ -129,6 +146,7 @@ class SessionBlueprint:
     def to_dict(self) -> dict:
         d = asdict(self)
         d.pop("_move_index", None)
+        d.pop("_char_index", None)
         return d
 
     @classmethod
@@ -137,17 +155,12 @@ class SessionBlueprint:
         if not match:
             raise ValueError("No JSON found in model response")
         json_str = match.group()
-        # Strip non-printable control chars (keep \t=9, \n=10, \r=13)
         json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", json_str)
-        # Escape literal newlines/tabs that landed inside JSON string values.
-        # Strategy: replace \n/\r/\t only when they appear between two non-structural
-        # characters (i.e. not at the start of a key-value line).
         json_str = re.sub(
             r'"((?:[^"\\]|\\.)*)"',
             lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
             json_str,
         )
-        # If output was truncated, trim to the last complete top-level closing brace
         depth = 0
         last_close = -1
         for i, ch in enumerate(json_str):
@@ -163,6 +176,8 @@ class SessionBlueprint:
         data = json.loads(json_str)
 
         def fit(cls_, d: dict):
+            if not isinstance(d, dict):
+                return cls_()
             keys = {f.name for f in dataclasses.fields(cls_)}
             return cls_(**{k: v for k, v in d.items() if k in keys})
 
@@ -176,6 +191,7 @@ class SessionBlueprint:
             topic=fit(Topic, get("topic", {})),
             phases=[fit(Phase, p) for p in get("arc", {}).get("phases", [])],
             moves=[fit(Move, m) for m in get("planned_moves", [])],
+            characters=[fit(Character, c) for c in get("characters", [])],
             contingencies=fit(Contingencies, get("contingencies", {})),
             opening=fit(Opening, get("opening", {})),
             closing=fit(Closing, get("closing", {})),
@@ -203,49 +219,78 @@ class WorkRequest(BaseModel):
     teacher:  TeacherInput
     lesson:   LessonInput
     material: str = ""
-# ── Ollama helper ────────────────────────────────────────────────
+
+class ChatMessage(BaseModel):
+    role:    str
+    content: str
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message:    str
+    history:    list[ChatMessage] = []
+
+class InterrogateRequest(BaseModel):
+    session_id:   str
+    character_id: str
+    message:      str
+    history:      list[ChatMessage] = []
+
+# ── Ollama helpers ───────────────────────────────────────────────
 
 def ask_ollama(system_prompt: str, user_message: str,
                options: dict | None = None) -> str:
-
     payload: dict = {
         "model": MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
+            {"role": "user",   "content": user_message},
         ],
         "stream": False,
     }
-
     if options:
         payload["options"] = options
-
-    response = requests.post(
-        OLLAMA_URL,
-        json=payload,
-        timeout=60
-    )
-
+    response = requests.post(OLLAMA_URL, json=payload, timeout=120)
     response.raise_for_status()
+    return response.json()["message"]["content"]
 
-    data = response.json()
-
-    return data["message"]["content"]
+def ask_ollama_stream(system_prompt: str, user_message: str,
+                      options: dict | None = None):
+    """Generator that yields raw text chunks from Ollama streaming API."""
+    payload: dict = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ],
+        "stream": True,
+    }
+    if options:
+        payload["options"] = options
+    with requests.post(OLLAMA_URL, json=payload, stream=True, timeout=300) as response:
+        response.raise_for_status()
+        for line in response.iter_lines():
+            if line:
+                data = json.loads(line)
+                content = data.get("message", {}).get("content", "")
+                if content:
+                    yield content
+                if data.get("done"):
+                    break
 
 def _load_prompt(filename: str) -> str:
     with open(filename, "r", encoding="utf-8") as f:
         return f.read()
 
-def run_teacher_agent(
-    blueprint: SessionBlueprint,
-    user_prompt: str,
-    current_move: "Move | None",
-    history: list["ChatMessage"] | None = None,
+# ── Prompt building ──────────────────────────────────────────────
+
+def _build_teacher_prompts(
+    blueprint:        "SessionBlueprint",
+    user_prompt:      str,
+    current_move:     "Move | None",
+    history:          list["ChatMessage"] | None = None,
     visited_move_ids: list[str] | None = None,
 ) -> tuple[str, str]:
-    """Returns (clean_reply_without_STATE, state_signal) where
-    state_signal is 'ADVANCE', 'STAY', or 'CLOSE'."""
-
+    """Returns (system_prompt, user_message) for the teacher agent."""
     system_template = _load_prompt("teacher_system_prompt.txt")
     system_prompt = system_template.format(
         teacher_name=blueprint.teacher.name,
@@ -268,11 +313,10 @@ def run_teacher_agent(
 
     current_move_json = json.dumps(
         dataclasses.asdict(current_move) if current_move else {},
-        ensure_ascii=False, indent=2
+        ensure_ascii=False, indent=2,
     )
     is_closing_move = current_move and current_move.type == "closing"
 
-    # Build list of already-tested concepts so the teacher doesn't repeat them
     visited_ids = visited_move_ids or []
     already_tested_lines = []
     for mid in visited_ids:
@@ -291,10 +335,21 @@ def run_teacher_agent(
                         if is_closing_move else "NO",
         already_tested=already_tested,
     )
+    return system_prompt, user_message
 
+def run_teacher_agent(
+    blueprint:        "SessionBlueprint",
+    user_prompt:      str,
+    current_move:     "Move | None",
+    history:          list["ChatMessage"] | None = None,
+    visited_move_ids: list[str] | None = None,
+) -> tuple[str, str]:
+    """Returns (clean_reply_without_STATE, state_signal)."""
+    system_prompt, user_message = _build_teacher_prompts(
+        blueprint, user_prompt, current_move, history, visited_move_ids,
+    )
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
 
-    # Extract [STATE] signal — accept variations: "[STATE]\nADVANCE", "[STATE]: ADVANCE", etc.
     state = "STAY"
     state_match = re.search(
         r"\[STATE\][:\s]*\n?\s*(ADVANCE|STAY|CLOSE)", raw, re.IGNORECASE
@@ -305,6 +360,7 @@ def run_teacher_agent(
 
     return raw, state
 
+# ── Research & validation system prompts ────────────────────────
 
 _RESEARCH_SYSTEM = """\
 You are a curriculum expert and subject-matter specialist. Given a topic, school level, and grade,
@@ -338,7 +394,6 @@ No other text. Be strict: flag anything that is wrong, oversimplified to the poi
 # ── Story builder ────────────────────────────────────────────────
 
 def build_story(req: WorkRequest) -> SessionBlueprint:
-    # Step 1: research the topic for richer, accurate blueprint content
     research_user = (
         f"Topic: {req.lesson.topic}\n"
         f"School type: {req.lesson.school_type or 'not specified'}\n"
@@ -352,9 +407,9 @@ def build_story(req: WorkRequest) -> SessionBlueprint:
         system_prompt = f.read()
 
     user_message = json.dumps({
-        "teacher":  req.teacher.model_dump(),
-        "lesson":   req.lesson.model_dump(),
-        "material": req.material,
+        "teacher":        req.teacher.model_dump(),
+        "lesson":         req.lesson.model_dump(),
+        "material":       req.material,
         "topic_research": research,
     }, ensure_ascii=False)
 
@@ -373,7 +428,6 @@ def build_story(req: WorkRequest) -> SessionBlueprint:
                           options={**_OPTS_BLUEPRINT, "temperature": 0.05})
         blueprint = SessionBlueprint.from_llm_response(raw2)
 
-    # Step 3: lightweight factual validation — log flags, don't fail
     try:
         entries = "\n\n".join(
             f"[{i}] Subject: {blueprint.topic.core_subject}\n"
@@ -393,19 +447,32 @@ def build_story(req: WorkRequest) -> SessionBlueprint:
 
 # ── Session store ────────────────────────────────────────────────
 
-_sessions: dict[str, SessionBlueprint] = {}
-
-# Per-session runtime state
-_session_state: dict[str, dict] = {}
+_sessions:      dict[str, SessionBlueprint] = {}
+_session_state: dict[str, dict]             = {}
 
 def _init_state(blueprint: SessionBlueprint) -> dict:
     return {
-        "current_move_id": blueprint.opening.opening_move_id,
-        "visited_move_ids": [],   # ordered list of moves the student has passed through
-        "turn_count":       0,
-        "correct_count":    0,
-        "closed":           False,
+        "current_move_id":       blueprint.opening.opening_move_id,
+        "visited_move_ids":      [],
+        "turn_count":            0,
+        "correct_count":         0,
+        "closed":                False,
+        "appeared_character_ids": [],
     }
+
+def _update_appeared_characters(blueprint: SessionBlueprint, state: dict,
+                                  visited_move_ids: list[str]) -> None:
+    appeared = set(state.get("appeared_character_ids", []))
+    for char in blueprint.characters:
+        for move_id in char.appears_in_moves:
+            if move_id in visited_move_ids:
+                appeared.add(char.id)
+    # If all characters have empty appears_in_moves, unlock all (fallback)
+    if not appeared and blueprint.characters and all(
+        not c.appears_in_moves for c in blueprint.characters
+    ):
+        appeared = {c.id for c in blueprint.characters}
+    state["appeared_character_ids"] = list(appeared)
 
 def _phase_index_for_move(blueprint: SessionBlueprint, move_id: str) -> int:
     move = blueprint.get_move(move_id)
@@ -417,8 +484,8 @@ def _phase_index_for_move(blueprint: SessionBlueprint, move_id: str) -> int:
     return 0
 
 def _closing_line(blueprint: SessionBlueprint, state: dict) -> str:
-    total   = max(state["turn_count"], 1)
-    ratio   = state["correct_count"] / total
+    total = max(state["turn_count"], 1)
+    ratio = state["correct_count"] / total
     if ratio >= 0.70:
         return blueprint.closing.success_line
     elif ratio >= 0.40:
@@ -426,16 +493,30 @@ def _closing_line(blueprint: SessionBlueprint, state: dict) -> str:
     else:
         return blueprint.closing.fail_line
 
-# ── Chat schema ──────────────────────────────────────────────────
+def _apply_state_signal(
+    signal:       str,
+    current_move: "Move | None",
+    blueprint:    SessionBlueprint,
+    state:        dict,
+) -> None:
+    """Mutate state in-place based on the routing signal."""
+    if signal == "ADVANCE":
+        state["correct_count"] += 1
+        if current_move and current_move.type == "closing":
+            state["closed"] = True
+        elif current_move and current_move.if_correct:
+            next_id = current_move.if_correct
+            state["current_move_id"] = next_id
+            if next_id not in state["visited_move_ids"]:
+                state["visited_move_ids"].append(next_id)
+    elif signal == "CLOSE":
+        state["closed"] = True
+    else:  # STAY
+        if current_move and current_move.if_incorrect:
+            state["current_move_id"] = current_move.if_incorrect
 
-class ChatMessage(BaseModel):
-    role:    str   # "user" or "teacher"
-    content: str
-
-class ChatRequest(BaseModel):
-    session_id: str
-    message:    str
-    history:    list[ChatMessage] = []
+    if state["turn_count"] >= blueprint.session.estimated_turns:
+        state["closed"] = True
 
 # ── API ──────────────────────────────────────────────────────────
 
@@ -461,12 +542,12 @@ def chat(req: ChatRequest):
 
     state = _session_state.setdefault(req.session_id, _init_state(blueprint))
 
-    # Already closed — return the closing line again
     if state["closed"]:
         return {
-            "reply":       _closing_line(blueprint, state),
-            "phase_index": len(blueprint.phases) - 1,
-            "closed":      True,
+            "reply":                  _closing_line(blueprint, state),
+            "phase_index":            len(blueprint.phases) - 1,
+            "closed":                 True,
+            "appeared_character_ids": state.get("appeared_character_ids", []),
         }
 
     current_move = blueprint.get_move(state["current_move_id"])
@@ -480,41 +561,150 @@ def chat(req: ChatRequest):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
 
-    # Hints never advance state
     if not is_hint:
         state["turn_count"] += 1
         if current_move and current_move.id not in state["visited_move_ids"]:
             state["visited_move_ids"].append(current_move.id)
-        if signal == "ADVANCE":
-            state["correct_count"] += 1
-            if signal == "CLOSE" or (current_move and current_move.type == "closing"):
-                state["closed"] = True
-            elif current_move and current_move.if_correct:
-                next_id = current_move.if_correct
-                state["current_move_id"] = next_id
-                if next_id not in state["visited_move_ids"]:
-                    state["visited_move_ids"].append(next_id)
-        elif signal == "CLOSE":
-            state["closed"] = True
-        else:  # STAY
-            if current_move and current_move.if_incorrect:
-                state["current_move_id"] = current_move.if_incorrect
+        _apply_state_signal(signal, current_move, blueprint, state)
 
-        # Force close when turn budget exhausted
-        if state["turn_count"] >= blueprint.session.estimated_turns:
-            state["closed"] = True
-
+    _update_appeared_characters(blueprint, state, state["visited_move_ids"])
     phase_index = _phase_index_for_move(blueprint, state["current_move_id"])
 
     response: dict = {
-        "reply":       reply,
-        "phase_index": phase_index,
-        "closed":      state["closed"],
+        "reply":                  reply,
+        "phase_index":            phase_index,
+        "closed":                 state["closed"],
+        "appeared_character_ids": state.get("appeared_character_ids", []),
     }
     if state["closed"]:
         response["closing_line"] = _closing_line(blueprint, state)
-
     return response
+
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatRequest):
+    blueprint = _sessions.get(req.session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    state = _session_state.setdefault(req.session_id, _init_state(blueprint))
+
+    if state["closed"]:
+        closing = _closing_line(blueprint, state)
+        def closed_gen():
+            yield f"data: {json.dumps({'chunk': closing})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'closed': True, 'closing_line': closing, 'phase_index': len(blueprint.phases) - 1, 'appeared_character_ids': state.get('appeared_character_ids', [])})}\n\n"
+        return StreamingResponse(
+            closed_gen(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    current_move = blueprint.get_move(state["current_move_id"])
+    is_hint = req.message.startswith("[SYSTEM:")
+
+    system_prompt, user_message = _build_teacher_prompts(
+        blueprint, req.message, current_move, req.history,
+        visited_move_ids=state.get("visited_move_ids", []),
+    )
+
+    def event_gen():
+        buffer = ""
+        try:
+            for chunk in ask_ollama_stream(system_prompt, user_message, options=_OPTS_CHAT):
+                buffer += chunk
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        except requests.RequestException as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            return
+
+        # Parse state from completed buffer
+        signal = "STAY"
+        state_match = re.search(
+            r"\[STATE\][:\s]*\n?\s*(ADVANCE|STAY|CLOSE)", buffer, re.IGNORECASE
+        )
+        if state_match:
+            signal = state_match.group(1).upper()
+
+        if not is_hint:
+            state["turn_count"] += 1
+            if current_move and current_move.id not in state["visited_move_ids"]:
+                state["visited_move_ids"].append(current_move.id)
+            _apply_state_signal(signal, current_move, blueprint, state)
+
+        _update_appeared_characters(blueprint, state, state["visited_move_ids"])
+        phase_index = _phase_index_for_move(blueprint, state["current_move_id"])
+
+        done_data: dict = {
+            "done":                   True,
+            "state_signal":           signal,
+            "phase_index":            phase_index,
+            "closed":                 state["closed"],
+            "appeared_character_ids": state.get("appeared_character_ids", []),
+        }
+        if state["closed"]:
+            done_data["closing_line"] = _closing_line(blueprint, state)
+        yield f"data: {json.dumps(done_data)}\n\n"
+
+    return StreamingResponse(
+        event_gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+@app.post("/api/interrogate")
+def interrogate(req: InterrogateRequest):
+    blueprint = _sessions.get(req.session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    character = blueprint.get_character(req.character_id)
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    state = _session_state.get(req.session_id, {})
+    appeared = state.get("appeared_character_ids", [])
+    # Fallback: if appeared list is empty but characters exist, allow all
+    if appeared and req.character_id not in appeared:
+        raise HTTPException(status_code=403, detail="Character has not appeared in the story yet")
+
+    system_template = _load_prompt("interrogation_system_prompt.txt")
+    system_prompt = system_template.format(
+        character_name=character.name,
+        character_role=character.role,
+        character_personality=character.personality,
+        character_voice=character.voice,
+        character_knowledge=character.knowledge,
+        character_secrets=character.secrets,
+        character_ignorant_of=character.ignorant_of,
+        language=blueprint.session.language,
+    )
+
+    history_text = "(none)"
+    if req.history:
+        lines = []
+        for msg in req.history:
+            label = "DETECTIVE" if msg.role == "user" else character.name
+            lines.append(f"{label}: {msg.content}")
+        history_text = "\n".join(lines)
+
+    user_message = f"CONVERSATION SO FAR:\n{history_text}\n\nDETECTIVE: {req.message}"
+
+    try:
+        reply = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
+
+    return {"reply": reply}
+
+@app.get("/api/session/{session_id}")
+def get_session(session_id: str):
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    state = _session_state.get(session_id, _init_state(blueprint))
+    return {
+        "appeared_character_ids": state.get("appeared_character_ids", []),
+        "turn_count":             state.get("turn_count", 0),
+        "closed":                 state.get("closed", False),
+    }
 
 # ── Serve frontend ───────────────────────────────────────────────
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

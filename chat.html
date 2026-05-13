@@ -9,12 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="chat.css">
 
-<!--
-  MOOD CONFIG — server-rendered target.
-  Python backend: write this JSON block with "active" set to your mood key.
-  JS API: window.MindHeist.setMood("tense")
-  postMessage: { type: "mindheist:mood", mood: "tense" }
--->
 <script id="mood-config" type="application/json">
 {
   "active": "neutral",
@@ -157,7 +151,7 @@
     </div>
   </aside>
 
-  <!-- ============ CHAT ============ -->
+  <!-- ============ MAIN ============ -->
   <main class="main">
 
     <header class="topbar">
@@ -187,25 +181,76 @@
       </div>
     </header>
 
-    <section class="transcript" id="transcript">
-      <div class="feed" id="feed"></div>
-    </section>
+    <!-- Tab navigation -->
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" id="tab-investigation-btn" role="tab" aria-selected="true" aria-controls="panel-investigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        Investigation
+      </button>
+      <button class="tab-btn" id="tab-interrogation-btn" role="tab" aria-selected="false" aria-controls="panel-interrogation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Interrogation
+        <span class="tab-badge" id="char-count-badge">0</span>
+      </button>
+    </nav>
 
-    <div class="composer-wrap">
-      <div class="composer">
-        <textarea id="composer-input" rows="1" placeholder="What does the detective do or say…"></textarea>
-        <div class="composer-tools">
-          <button class="icon-btn" title="Hint" id="hint-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
-          </button>
-          <button class="send-btn" id="send-btn" title="Send">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
-          </button>
+    <!-- ── Investigation panel ── -->
+    <div class="tab-panel active" id="panel-investigation" role="tabpanel">
+      <section class="transcript" id="transcript">
+        <div class="feed" id="feed"></div>
+      </section>
+
+      <div class="composer-wrap" id="investigation-composer">
+        <div class="composer">
+          <textarea id="composer-input" rows="1" placeholder="What does the detective do or say…"></textarea>
+          <div class="composer-tools">
+            <button class="icon-btn" title="Hint" id="hint-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
+            </button>
+            <button class="send-btn" id="send-btn" title="Send">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="composer-hint">
+          <span><span class="kbd">⏎</span> send · <span class="kbd">⇧</span><span class="kbd">⏎</span> new line</span>
+          <span>Gemma 4 · on-device</span>
         </div>
       </div>
-      <div class="composer-hint">
-        <span><span class="kbd">⏎</span> send · <span class="kbd">⇧</span><span class="kbd">⏎</span> new line</span>
-        <span>Gemma 4 · on-device</span>
+    </div>
+
+    <!-- ── Interrogation panel ── -->
+    <div class="tab-panel" id="panel-interrogation" role="tabpanel">
+
+      <!-- Character selector -->
+      <div class="char-selector-bar" id="char-selector-bar">
+        <div class="no-chars-msg" id="no-chars-msg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          No witnesses or suspects met yet — advance the investigation.
+        </div>
+      </div>
+
+      <!-- Interrogation chat -->
+      <section class="transcript" id="interrogation-transcript">
+        <div class="feed" id="interrogation-feed">
+          <div class="day" id="interrogation-placeholder">Select a character above to begin interrogation</div>
+        </div>
+      </section>
+
+      <!-- Interrogation composer -->
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="interrogation-input" rows="1" placeholder="Question the witness…" disabled></textarea>
+          <div class="composer-tools">
+            <button class="send-btn" id="interrogation-send-btn" disabled title="Send">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="composer-hint">
+          <span><span class="kbd">⏎</span> send</span>
+          <span>Characters only know what they know — answers are constrained</span>
+        </div>
       </div>
     </div>
 

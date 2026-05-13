@@ -222,7 +222,7 @@ body {
 .who .p { font-size: 11px; color: var(--ink-mute); }
 
 /* ====================================================
-   MAIN / CHAT
+   MAIN
 ==================================================== */
 .main {
   display: flex;
@@ -244,6 +244,7 @@ body {
     color-mix(in srgb, var(--bg) 80%, transparent),
     color-mix(in srgb, var(--bg) 50%, transparent)
   );
+  flex-shrink: 0;
 }
 
 .teacher-card {
@@ -331,6 +332,66 @@ body {
 .icon-btn svg { width: 14px; height: 14px; }
 
 /* ====================================================
+   TAB NAVIGATION
+==================================================== */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0 28px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color .15s, border-bottom-color .15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--ink-dim); }
+.tab-btn.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.tab-btn svg { flex-shrink: 0; }
+
+.tab-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 80%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.4;
+  transition: background .8s ease;
+}
+.tab-badge:empty { display: none; }
+
+/* ====================================================
+   TAB PANELS
+==================================================== */
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.tab-panel.active { display: flex; }
+
+/* ====================================================
    TRANSCRIPT
 ==================================================== */
 .transcript {
@@ -352,7 +413,7 @@ body {
   padding: 0 28px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 28px;
 }
 
 .day {
@@ -370,6 +431,9 @@ body {
   background: var(--line);
 }
 
+/* ====================================================
+   MESSAGES — base
+==================================================== */
 .msg {
   display: grid;
   grid-template-columns: 36px 1fr;
@@ -409,7 +473,7 @@ body {
 .meta {
   display: flex; align-items: baseline; gap: 8px;
   font-size: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .meta .name { font-weight: 500; color: var(--ink); }
 .msg.teacher .meta .name {
@@ -424,6 +488,9 @@ body {
   font-family: "Geist Mono", monospace;
 }
 
+/* ====================================================
+   USER BUBBLE
+==================================================== */
 .bubble {
   padding: 12px 16px;
   border-radius: 14px;
@@ -434,35 +501,79 @@ body {
   transition: background .8s ease, color .8s ease, border-color .8s ease;
   word-break: break-word;
 }
-/* user bubbles keep pre-wrap; teacher bubbles are structured */
-.msg.user .bubble { white-space: pre-wrap; }
-.msg.teacher .bubble {
-  background: var(--teacher-bubble);
-  color: var(--teacher-ink);
-  border-top-left-radius: 4px;
-  box-shadow: var(--shadow-2);
-}
 .msg.user .bubble {
+  white-space: pre-wrap;
   background: var(--user-bubble);
   color: var(--user-ink);
   border-top-right-radius: 4px;
   box-shadow: var(--shadow-2);
 }
 
-/* ── Structured teacher message sections ── */
-.bubble-story {
+/* ====================================================
+   TEACHER RESPONSE — structured sections
+==================================================== */
+.teacher-response {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Narration — no bubble, prose style */
+.narration {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 2px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  padding-left: 14px;
+  transition: color .8s ease, border-color .8s ease;
+}
+
+/* NPC bubble — per character */
+.npc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.npc-name-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teacher-accent);
+  padding-left: 2px;
+  transition: color .8s ease;
+}
+
+.npc-bubble {
+  padding: 12px 16px;
+  border-radius: 14px;
+  border-top-left-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--teacher-bubble);
+  color: var(--teacher-ink);
+  font-size: 14.5px;
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: var(--shadow-2);
+  transition: background .8s ease, color .8s ease, border-color .8s ease;
 }
 
-.bubble-question {
-  margin-top: 12px;
-  padding: 10px 13px;
-  border-radius: 8px;
+/* Practice question box */
+.practice-question {
+  margin-top: 2px;
+  padding: 11px 14px;
+  border-radius: 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  font-size: 13px;
+  font-size: 13.5px;
   font-style: italic;
   color: var(--ink-dim);
   line-height: 1.55;
@@ -470,19 +581,18 @@ body {
   word-break: break-word;
   transition: background .8s ease, border-color .8s ease;
 }
-
-.bubble-question::before {
+.practice-question::before {
   content: "Practice · ";
   font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent-2);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   transition: color .8s ease;
 }
 
-/* typing indicator */
+/* Typing indicator */
 .typing {
   display: flex; align-items: center; gap: 6px;
   padding: 14px 16px;
@@ -506,6 +616,19 @@ body {
   40%           { transform: translateY(-4px); opacity: 1; }
 }
 
+/* Closing bubble */
+.bubble-closing {
+  background: color-mix(in srgb, var(--accent) 14%, var(--teacher-bubble));
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  font-family: "Instrument Serif", serif;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 0 32px -8px var(--glow), var(--shadow-2);
+}
+
 /* ====================================================
    COMPOSER
 ==================================================== */
@@ -516,6 +639,7 @@ body {
     color-mix(in srgb, var(--bg) 70%, transparent)
   );
   padding: 16px 28px 22px;
+  flex-shrink: 0;
 }
 
 .composer {
@@ -547,6 +671,7 @@ body {
   width: 100%;
 }
 .composer textarea::placeholder { color: var(--ink-mute); }
+.composer textarea:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .composer-tools {
   display: flex; align-items: center; gap: 6px;
@@ -586,19 +711,7 @@ body {
   margin: 0 2px;
 }
 
-/* ── Closing bubble ── */
-.bubble-closing {
-  background: color-mix(in srgb, var(--accent) 14%, var(--teacher-bubble));
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  font-family: "Instrument Serif", serif;
-  font-size: 16px;
-  font-style: italic;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-  box-shadow: 0 0 32px -8px var(--glow), var(--shadow-2);
-}
-
+/* Return button (closing) */
 .btn-return {
   display: block;
   max-width: 820px;
@@ -619,6 +732,102 @@ body {
 .btn-return:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 /* ====================================================
+   INTERROGATION PANEL
+==================================================== */
+.char-selector-bar {
+  display: flex;
+  gap: 10px;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(4px);
+  align-items: center;
+}
+.char-selector-bar::-webkit-scrollbar { height: 4px; }
+.char-selector-bar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+}
+
+.no-chars-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-mute);
+  font-size: 13px;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.char-card {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 130px;
+  max-width: 180px;
+  transition: border-color .15s, background .15s;
+}
+.char-card:hover:not(.locked) {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.char-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.char-card.locked {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.char-card-initials {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--line);
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 700;
+  color: var(--accent-2);
+  margin-bottom: 4px;
+  transition: background .8s ease;
+}
+
+.char-card-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.char-card-role {
+  font-size: 11px;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Interrogation NPC avatar uses accent color for character name */
+.msg.npc-msg .av {
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  color: var(--accent-2);
+  font-size: 11px;
+  font-weight: 700;
+  transition: background .8s ease;
+}
+
+/* ====================================================
    RESPONSIVE
 ==================================================== */
 @media (max-width: 860px) {
@@ -626,5 +835,6 @@ body {
   .sidebar { display: none; }
   .feed { padding-left: 16px; padding-right: 16px; }
   .composer-wrap { padding-left: 16px; padding-right: 16px; }
-  .composer-hint { padding-left: 16px; padding-right: 16px; }
+  .tab-nav { padding-left: 16px; padding-right: 16px; }
+  .char-selector-bar { padding-left: 16px; padding-right: 16px; }
 }

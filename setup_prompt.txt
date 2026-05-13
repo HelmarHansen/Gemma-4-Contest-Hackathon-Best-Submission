@@ -123,6 +123,20 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
     "fail_line": string
   },
 
+  "characters": [
+    {
+      "id":               "character_slug",
+      "name":             string,      // exact name used in [NPC:Name] tags — must match precisely
+      "role":             string,      // one line: who they are in the story world
+      "personality":      string,      // one sentence: how they behave under pressure
+      "voice":            string,      // how they speak: e.g. "terse and clinical", "evasive, circles questions"
+      "knowledge":        string,      // 2–4 sentences: what this character knows about the case
+      "secrets":          string,      // 1–2 sentences: what they know but actively conceal
+      "ignorant_of":      string,      // 1–2 sentences: what they genuinely do not know
+      "appears_in_moves": ["move_slug"]  // planned_moves IDs where this character appears or speaks
+    }
+  ],
+
   "execution_rules": {
     "how_to_pick_next_move": string,
     "when_to_deviate_from_plan": string,
@@ -174,6 +188,18 @@ It must contain:
   (3) the exact name of the first concept the student must demonstrate — stated explicitly,
       not hinted at.
 If (3) is missing: rewrite the last sentence of first_line to name the concept directly.
+
+CHECK 5 — CHARACTER INTEGRITY
+For each entry in the "characters" array:
+  (a) "name" must match EXACTLY the name used in [NPC:Name] tags inside planned_moves content —
+      including capitalization, spacing, and punctuation.
+  (b) "appears_in_moves" must list at least one valid move_id from planned_moves where this
+      character appears or speaks.
+  (c) "knowledge" reflects only what this character could plausibly know in the story world.
+      Do not assign knowledge of another character's secrets.
+  (d) "ignorant_of" names at least one relevant fact this character genuinely cannot know.
+  (e) All NPC names appearing in planned_moves content must have a corresponding entry in "characters".
+      No anonymous or unnamed NPCs.
 
 
 ═══════════════════════════════════════════════════
