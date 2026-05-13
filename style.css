@@ -1,30 +1,18 @@
 :root {
-  --bg:          #161b1d;
   --bg-grad-1:   #1a2023;
   --bg-grad-2:   #101416;
   --glow-1:      rgba(184,85,68,0.10);
   --glow-2:      rgba(94,124,107,0.10);
-  --surface:     #1c2225;
-  --surface-2:   #232a2d;
   --line:        rgba(235,231,223,0.07);
   --line-strong: rgba(235,231,223,0.13);
-  --ink:         #ebe7df;
-  --ink-dim:     #b0aba2;
-  --ink-mute:    #7a766f;
-  --red:         #b85544;
+  --red:         var(--accent);
   --red-deep:    #7a3324;
-  --red-bright:  #d27259;
+  --red-bright:  var(--accent-light);
   --red-glow:    rgba(184,85,68,0.22);
   --gold:        #c9a984;
   --r-sm:        10px;
-  --r:           14px;
-  --r-lg:        20px;
-  --shadow:      0 18px 36px -16px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.025) inset;
   --shadow-red:  0 8px 24px -10px var(--red-glow);
 }
-
-*, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
 
 body {
   font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
@@ -41,28 +29,11 @@ body {
   overflow: hidden;
 }
 
-/* ── Layout ── */
-.app {
-  display: grid;
-  grid-template-columns: 304px 1fr;
-  height: 100vh;
-}
-
 /* ── Sidebar ── */
 .sidebar {
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 30%);
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 22px 22px 18px;
-  border-bottom: 1px solid var(--line);
-}
 .brand-mark {
   width: 34px; height: 34px;
   border-radius: 9px;
@@ -130,15 +101,6 @@ body {
 }
 .search input::placeholder { color: var(--ink-mute); }
 
-.sidebar h3 {
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  font-weight: 500;
-  margin: 8px 22px;
-}
-
 .projects {
   flex: 1;
   overflow-y: auto;
@@ -190,11 +152,6 @@ body {
 }
 .project.unread .dot { opacity: 1; }
 
-.sidebar-foot {
-  border-top: 1px solid var(--line);
-  padding: 14px 16px;
-  display: flex; align-items: center; gap: 10px;
-}
 .avatar {
   width: 30px; height: 30px; border-radius: 50%;
   background: linear-gradient(135deg, var(--gold), var(--red-deep));
@@ -568,8 +525,7 @@ h1 em { font-style: italic; color: var(--red-bright); }
 }
 @media (max-width: 860px) {
   body { overflow: auto; }
-  .app { grid-template-columns: 1fr; height: auto; }
-  .sidebar { display: none; }
+  .app { height: auto; }
   .main { height: auto; overflow: visible; }
   .scroll { padding: 24px; overflow: visible; }
 }
