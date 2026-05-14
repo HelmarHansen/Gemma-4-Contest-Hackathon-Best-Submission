@@ -801,3 +801,96 @@ h1 em { font-style: italic; color: var(--red-bright); }
   opacity: 0.5;
   flex-shrink: 0;
 }
+
+/* ── Interrogation: character selector ── */
+.char-selector-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line, rgba(255,255,255,0.08));
+  background: rgba(255,255,255,0.015);
+  min-height: 92px;
+  align-items: center;
+}
+.no-chars-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-mute);
+  font-size: 12.5px;
+  font-style: italic;
+  padding: 4px 6px;
+}
+.no-chars-msg svg { opacity: 0.6; flex-shrink: 0; }
+
+.char-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 150px;
+  max-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(255,255,255,0.08));
+  border-radius: 8px;
+  background: rgba(255,255,255,0.025);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.char-card:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--line-strong, rgba(255,255,255,0.16));
+  transform: translateY(-1px);
+}
+.char-card.active {
+  background: rgba(220, 60, 50, 0.10);
+  border-color: var(--accent, #dc3c32);
+  box-shadow: 0 0 0 1px var(--accent, #dc3c32) inset;
+}
+.char-card.locked {
+  cursor: not-allowed;
+  opacity: 0.42;
+  filter: grayscale(0.5);
+}
+.char-card.locked:hover {
+  background: rgba(255,255,255,0.025);
+  border-color: var(--line, rgba(255,255,255,0.08));
+  transform: none;
+}
+.char-card.locked::after {
+  content: "🔒";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+.char-card-initials {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(220,60,50,0.25), rgba(220,60,50,0.05));
+  color: var(--ink, #fff);
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+.char-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #fff);
+  line-height: 1.2;
+}
+.char-card-role {
+  font-size: 11px;
+  color: var(--ink-mute, rgba(255,255,255,0.5));
+  line-height: 1.25;
+  font-family: "Geist Mono", monospace;
+}
