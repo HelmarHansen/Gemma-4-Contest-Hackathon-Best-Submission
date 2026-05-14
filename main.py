@@ -176,6 +176,7 @@ class SessionBlueprint:
         data = json.loads(json_str)
 
         def fit(cls_, d: dict):
+            # Strip unknown keys so new blueprint fields don't break old dataclasses
             if not isinstance(d, dict):
                 return cls_()
             keys = {f.name for f in dataclasses.fields(cls_)}
@@ -235,6 +236,9 @@ class InterrogateRequest(BaseModel):
     message:      str
     history:      list[ChatMessage] = []
 
+class DebugGotoRequest(BaseModel):
+    move_id: str
+
 # ── Ollama helpers ───────────────────────────────────────────────
 
 def ask_ollama(system_prompt: str, user_message: str,
@@ -255,7 +259,8 @@ def ask_ollama(system_prompt: str, user_message: str,
 
 def ask_ollama_stream(system_prompt: str, user_message: str,
                       options: dict | None = None):
-    """Generator that yields raw text chunks from Ollama streaming API."""
+    # Sync generator: FastAPI wraps it in a thread via StreamingResponse,
+    # so we can use blocking requests.post here without async complexity.
     payload: dict = {
         "model": MODEL,
         "messages": [
@@ -467,7 +472,8 @@ def _update_appeared_characters(blueprint: SessionBlueprint, state: dict,
         for move_id in char.appears_in_moves:
             if move_id in visited_move_ids:
                 appeared.add(char.id)
-    # If all characters have empty appears_in_moves, unlock all (fallback)
+    # Fallback: if the model generated characters without appears_in_moves,
+    # unlock everyone immediately so the interrogation tab isn't empty forever.
     if not appeared and blueprint.characters and all(
         not c.appears_in_moves for c in blueprint.characters
     ):
@@ -499,7 +505,8 @@ def _apply_state_signal(
     blueprint:    SessionBlueprint,
     state:        dict,
 ) -> None:
-    """Mutate state in-place based on the routing signal."""
+    # Extracted from the inline handler because the original had CLOSE unreachable
+    # (it was inside the ADVANCE branch). Now all three signals are first-class.
     if signal == "ADVANCE":
         state["correct_count"] += 1
         if current_move and current_move.type == "closing":
@@ -705,6 +712,69 @@ def get_session(session_id: str):
         "turn_count":             state.get("turn_count", 0),
         "closed":                 state.get("closed", False),
     }
+
+# ── Debug API (all routes gated by /api/debug/ prefix) ──────────
+
+@app.get("/api/debug/{session_id}/state")
+def debug_state(session_id: str):
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    state = _session_state.get(session_id, _init_state(blueprint))
+    current_move = blueprint.get_move(state["current_move_id"])
+    return {
+        "session_id": session_id,
+        "state": state,
+        "current_move": dataclasses.asdict(current_move) if current_move else None,
+        "blueprint_summary": {
+            "session_id":    blueprint.session_id,
+            "topic":         blueprint.topic.core_subject,
+            "teacher":       blueprint.teacher.name,
+            "language":      blueprint.session.language,
+            "total_moves":   len(blueprint.moves),
+            "total_phases":  len(blueprint.phases),
+            "move_ids":      [m.id for m in blueprint.moves],
+            "character_ids": [c.id for c in blueprint.characters],
+        },
+    }
+
+@app.post("/api/debug/{session_id}/advance")
+def debug_advance(session_id: str):
+    """Force-advance the session without asking the model."""
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    state = _session_state.setdefault(session_id, _init_state(blueprint))
+    current_move = blueprint.get_move(state["current_move_id"])
+    if current_move and current_move.id not in state["visited_move_ids"]:
+        state["visited_move_ids"].append(current_move.id)
+    _apply_state_signal("ADVANCE", current_move, blueprint, state)
+    _update_appeared_characters(blueprint, state, state["visited_move_ids"])
+    return {"ok": True, "new_move_id": state["current_move_id"], "closed": state["closed"]}
+
+@app.post("/api/debug/{session_id}/goto")
+def debug_goto(session_id: str, req: DebugGotoRequest):
+    """Jump directly to any move by ID."""
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not blueprint.get_move(req.move_id):
+        raise HTTPException(status_code=404, detail=f"Move '{req.move_id}' not found")
+    state = _session_state.setdefault(session_id, _init_state(blueprint))
+    state["current_move_id"] = req.move_id
+    if req.move_id not in state["visited_move_ids"]:
+        state["visited_move_ids"].append(req.move_id)
+    return {"ok": True, "current_move_id": req.move_id}
+
+@app.post("/api/debug/{session_id}/unlock_chars")
+def debug_unlock_chars(session_id: str):
+    """Make all characters available in the interrogation tab immediately."""
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    state = _session_state.setdefault(session_id, _init_state(blueprint))
+    state["appeared_character_ids"] = [c.id for c in blueprint.characters]
+    return {"ok": True, "unlocked": state["appeared_character_ids"]}
 
 # ── Serve frontend ───────────────────────────────────────────────
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

@@ -828,6 +828,37 @@ body {
 }
 
 /* ====================================================
+   DEBUG OUTPUT
+==================================================== */
+.debug-msg {
+  font-family: "Geist Mono", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  background: rgba(0, 80, 30, 0.12);
+  border: 1px solid rgba(109, 187, 138, 0.18);
+  border-left: 3px solid rgba(109, 187, 138, 0.45);
+  border-radius: 8px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-title {
+  font-weight: 700;
+  color: #8de8a8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+
+.debug-line {
+  color: #6dbb8a;
+}
+
+.debug-line:empty::after { content: "\00a0"; }
+
+/* ====================================================
    RESPONSIVE
 ==================================================== */
 @media (max-width: 860px) {

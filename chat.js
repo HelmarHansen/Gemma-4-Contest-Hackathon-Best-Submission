@@ -383,6 +383,165 @@ function createStreamParser(responseContainer, transcriptEl) {
 }
 
 /* ============================================================
+   DEBUG COMMAND HANDLER
+   Intercepts messages starting with "/" in both tabs.
+   All commands hit the /api/debug/* endpoints — no model calls.
+============================================================ */
+async function handleCommand(text, feedTarget, scrollTarget) {
+  const parts = text.trim().split(/\s+/);
+  const cmd   = parts[0].toLowerCase();
+  
+  function dbg(title, lines) {
+    const el = document.createElement("div");
+    el.className = "debug-msg";
+    el.innerHTML =
+      `<div class="debug-title">${escapeHtml(title)}</div>` +
+      lines.map(l => `<div class="debug-line">${escapeHtml(String(l))}</div>`).join("");
+    feedTarget.appendChild(el);
+    scrollBottom(scrollTarget);
+  }
+
+  if (cmd === "/help") {
+    dbg("Debug Commands", [
+      "/status      — session state (turn, phase, move)",
+      "/move        — active move details",
+      "/answer      — expected answer for current move",
+      "/moves       — list all move IDs",
+      "/skip        — force ADVANCE (skip current move)",
+      "/goto <id>   — jump to move by ID",
+      "/unlock      — unlock all characters for interrogation",
+      "/phase       — current phase info",
+      "/chars       — list all characters + unlock status",
+    ]);
+    return;
+  }
+
+  const sid = blueprint.session_id;
+
+  if (cmd === "/status") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      const s = d.state;
+      dbg("Session Status", [
+        `session_id:   ${sid}`,
+        `turn:         ${s.turn_count} / ${blueprint.session.estimated_turns}`,
+        `correct:      ${s.correct_count}`,
+        `current_move: ${s.current_move_id}`,
+        `closed:       ${s.closed}`,
+        `visited:      ${s.visited_move_ids.join(", ") || "(none)"}`,
+      ]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/move") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      const m = d.current_move;
+      if (!m) { dbg("Move", ["No active move"]); return; }
+      dbg("Active Move", [
+        `id:       ${m.id}`,
+        `phase:    ${m.phase}`,
+        `type:     ${m.type}`,
+        `trigger:  ${m.trigger}`,
+        `content:  ${m.content.slice(0, 120)}${m.content.length > 120 ? "…" : ""}`,
+      ]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/answer") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      const m = d.current_move;
+      if (!m) { dbg("Answer", ["No active move"]); return; }
+      dbg("Expected Answer", [`move: ${m.id}`, "", m.expected_student_response]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/moves") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      dbg("All Moves", d.blueprint_summary.move_ids.map((id, i) =>
+        `${String(i + 1).padStart(2, "0")}. ${id}${id === d.state.current_move_id ? " ← active" : ""}`
+      ));
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/skip") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/advance`, { method: "POST" });
+      const d = await res.json();
+      dbg("Skipped", [`→ ${d.new_move_id}`, d.closed ? "Session closed." : ""]);
+      if (d.closed) closeSession(null);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/goto") {
+    const moveId = parts[1];
+    if (!moveId) { dbg("Usage", ["/goto <move_id>"]); return; }
+    try {
+      const res = await fetch(`/api/debug/${sid}/goto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ move_id: moveId }),
+      });
+      const d = await res.json();
+      if (!res.ok) { dbg("Error", [d.detail]); return; }
+      dbg("Jumped", [`→ ${d.current_move_id}`]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/unlock") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/unlock_chars`, { method: "POST" });
+      const d = await res.json();
+      updateAppearedCharacters(d.unlocked);
+      dbg("Unlocked Characters", d.unlocked.length ? d.unlocked : ["(none)"]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/phase") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      const moves = blueprint.moves || [];
+      const currentMove = moves.find(m => m.id === d.state.current_move_id);
+      const phaseIdx = blueprint.phases.findIndex(p => currentMove && p.id === currentMove.phase);
+      const phase = phaseIdx >= 0 ? blueprint.phases[phaseIdx] : null;
+      if (!phase) { dbg("Phase", ["Unknown"]); return; }
+      dbg("Current Phase", [
+        `index: ${phaseIdx + 1} / ${blueprint.phases.length}`,
+        `id:    ${phase.id}`,
+        `name:  ${phase.name}`,
+        `goal:  ${phase.goal}`,
+      ]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/chars") {
+    const chars = blueprint.characters || [];
+    if (!chars.length) { dbg("Characters", ["(none in blueprint)"]); return; }
+    dbg("Characters", chars.map(c =>
+      `${appearedCharacterIds.has(c.id) ? "✓" : "✗"} ${c.id} — ${c.name} (${c.role})`
+    ));
+    return;
+  }
+
+  dbg("Unknown command", [`'${cmd}' — type /help for a list`]);
+}
+
+/* ============================================================
    CHAT ENGINE — INVESTIGATION TAB
 ============================================================ */
 const feedEl        = document.getElementById("feed");
@@ -411,6 +570,13 @@ sendBtnEl.addEventListener("click", sendMessage);
 async function sendMessage() {
   const text = inputEl.value.trim();
   if (!text || isSending) return;
+
+  if (text.startsWith("/")) {
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    await handleCommand(text, feedEl, transcriptEl);
+    return;
+  }
 
   addUserMessage(text, feedEl);
   const historySnapshot = history.slice();
@@ -773,6 +939,13 @@ interrogationSendBtn.addEventListener("click", sendInterrogation);
 async function sendInterrogation() {
   const text = interrogationInput.value.trim();
   if (!text || isInterrogating || !selectedCharacterId) return;
+
+  if (text.startsWith("/")) {
+    interrogationInput.value = "";
+    interrogationInput.style.height = "auto";
+    await handleCommand(text, interrogationFeed, interrogationTranscript);
+    return;
+  }
 
   const char = (blueprint.characters || []).find(c => c.id === selectedCharacterId);
   if (!char) return;
