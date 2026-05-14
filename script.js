@@ -1,96 +1,190 @@
-// Trait toggles
-document.querySelectorAll('.trait').forEach(t =>
-    t.addEventListener('click', () => t.classList.toggle('on'))
-);
+const traitButtons = document.querySelectorAll(".trait");
 
-// Segmented control
-document.querySelectorAll('.seg').forEach(seg =>
-seg.querySelectorAll('.seg-item').forEach(item =>
-    item.addEventListener('click', () => {
-    seg.querySelectorAll('.seg-item').forEach(x => x.classList.remove('on'));
-    item.classList.add('on');
-    })
-)
-);
-
-// Project selection
-document.querySelectorAll('.project').forEach(p =>
-p.addEventListener('click', () => {
-    document.querySelectorAll('.project').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-})
-);
-
-// Difficulty slider
-const track = document.getElementById('diff-track');
-const fill  = document.getElementById('diff-fill');
-const knob  = document.getElementById('diff-knob');
-const label = document.getElementById('diff-label');
-const labels = ['Gentle', 'Balanced', 'Challenging', 'Brutal'];
-let difficultyPct = 60;
-
-function setDifficulty(pct) {
-    difficultyPct = Math.max(0, Math.min(100, pct));
-    fill.style.width = difficultyPct + '%';
-    knob.style.left  = difficultyPct + '%';
-    label.textContent = labels[Math.min(3, Math.floor(difficultyPct / 25))];
-}
-
-track.addEventListener('click', e => {
-    const r = track.getBoundingClientRect();
-    setDifficulty(((e.clientX - r.left) / r.width) * 100);
+traitButtons.forEach((trait) => {
+  trait.addEventListener("click", () => {
+    trait.classList.toggle("on");
+  });
 });
 
-// Character count
-function updateCount(ta) {
-    document.getElementById('char-count').textContent =
-        ta.value.length.toLocaleString() + ' / 2,000';
+const segmentedControls = document.querySelectorAll(".seg");
+
+segmentedControls.forEach((seg) => {
+  const items = seg.querySelectorAll(".seg-item");
+
+  items.forEach((item) => {
+    item.addEventListener("click", () => {
+      items.forEach((x) => x.classList.remove("on"));
+      item.classList.add("on");
+    });
+  });
+});
+
+const difficultyButtons = document.querySelectorAll(
+  ".difficulty .seg-item"
+);
+
+const difficultyMap = {
+  Gentle: 0.25,
+  Balanced: 0.5,
+  Hard: 0.75,
+  Brutal: 1.0,
+};
+
+let difficultyValue = 0.5;
+let materialText = "";
+
+difficultyButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    difficultyButtons.forEach((b) => b.classList.remove("on"));
+
+    btn.classList.add("on");
+
+    difficultyValue = difficultyMap[
+      btn.textContent.trim()
+    ] || 0.5;
+  });
+});
+
+function updateCount(textarea) {
+  document.getElementById("char-count").textContent =
+    textarea.value.length.toLocaleString() + " / 2,000";
 }
 
-async function send() {
-    const btn = document.querySelector('.btn-primary');
-    btn.disabled = true;
-    btn.textContent = 'Generating…';
+const fileInput = document.getElementById("file-input");
+const fileList = document.getElementById("file-list");
 
+fileInput.addEventListener("change", async () => {
+  const files = [...fileInput.files];
+
+  const chunks = [];
+
+  fileList.innerHTML = "";
+
+  for (const file of files) {
+    const ext = file.name.split(".").pop().toLowerCase();
+
+    const canRead =
+      ["txt", "md", "csv"].includes(ext) ||
+      file.type.startsWith("text/");
+
+    const item = document.createElement("div");
+
+    item.className = "file-item";
+
+    item.innerHTML = `
+      <span>${file.name}</span>
+      <small>${canRead ? "included" : "name only"}</small>
+    `;
+
+    fileList.appendChild(item);
+
+    if (canRead) {
+      chunks.push(
+        `--- ${file.name} ---\n${await file.text()}`
+      );
+    } else {
+      chunks.push(
+        `Uploaded file: ${file.name} (${file.type || "unknown type"}).`
+      );
+    }
+  }
+
+  materialText = chunks.join("\n\n");
+});
+
+async function send() {
+  const btn = document.querySelector(".btn-primary");
+
+  btn.disabled = true;
+  btn.textContent = "Generating...";
+
+  try {
     const payload = {
-        teacher: {
-            name:        document.getElementById('teacher-name').value.trim(),
-            role:        document.getElementById('teacher-role').value.trim(),
-            personality: document.getElementById('teacher-personality').value.trim(),
-            traits:      [...document.querySelectorAll('.trait.on')].map(t => t.textContent.trim()),
-        },
-        lesson: {
-            topic:       document.getElementById('topic-ta').value.trim(),
-            mode:        document.querySelector('.seg-item.on')?.textContent.trim() ?? '',
-            language:    document.getElementById('lesson-language').value,
-            length:      document.getElementById('lesson-length').value,
-            difficulty:  difficultyPct / 100,
-            school_type: document.getElementById('lesson-school-type').value,
-            grade:       document.getElementById('lesson-grade').value,
-        },
-        material: '',
+      teacher: {
+        name: document
+          .getElementById("teacher-name")
+          .value
+          .trim(),
+
+        role: document
+          .getElementById("teacher-role")
+          .value
+          .trim(),
+
+        personality: document
+          .getElementById("teacher-personality")
+          .value
+          .trim(),
+
+        traits: [...document.querySelectorAll(".trait.on")]
+          .map((t) => t.textContent.trim()),
+      },
+
+      lesson: {
+        topic: document
+          .getElementById("topic-ta")
+          .value
+          .trim(),
+
+        mode: document
+          .querySelector(".seg-item.on")
+          ?.textContent
+          .trim() ?? "",
+
+        language: document
+          .getElementById("lesson-language")
+          .value,
+
+        length: document
+          .getElementById("lesson-length")
+          .value,
+
+        difficulty: difficultyValue,
+
+        school_type: document
+          .getElementById("lesson-school")
+          .value
+          .trim(),
+
+        grade: document
+          .getElementById("lesson-grade")
+          .value
+          .trim(),
+      },
+
+      material: materialText,
     };
 
-    try {
-        const res = await fetch('/api/work', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(payload),
-        });
+    const response = await fetch("/api/work", {
+      method: "POST",
 
-        if (!res.ok) {
-            const err = await res.json();
-            alert('Error: ' + (err.detail ?? res.statusText));
-            return;
-        }
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-        const data = await res.json();
-        sessionStorage.setItem('mindheist_blueprint', JSON.stringify(data));
-        window.location.href = '/chat.html';
-    } catch (e) {
-        alert('Network error: ' + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l14 8-14 8z" fill="currentColor"/></svg> Begin roleplay <span class="kbd">⏎</span>';
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to generate case");
     }
+
+    const blueprint = await response.json();
+
+    sessionStorage.setItem(
+      "mindheist_blueprint",
+      JSON.stringify(blueprint)
+    );
+
+    window.location.href = "/chat.html";
+  }
+  catch (err) {
+    console.error(err);
+
+    alert("Failed to generate case.");
+  }
+  finally {
+    btn.disabled = false;
+    btn.textContent = "Generate Case";
+  }
 }

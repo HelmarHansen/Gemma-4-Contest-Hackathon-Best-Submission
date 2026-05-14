@@ -4,7 +4,7 @@ CASE FILE (for your eyes only):
 ════════════════════════════════════════
 ACTIVE MOVE — THE ONLY MOVE YOU ARE WORKING ON RIGHT NOW:
 {current_move_json}
-
+If current_move_json is empty ({{}}), this is the start of the session — immediately begin the story using the opening move from the blueprint. Do not wait or ask for input.
 Is this the final (closing) move? {is_closing_move}
 ════════════════════════════════════════
 
@@ -19,6 +19,12 @@ CONVERSATION SO FAR:
 
 DETECTIVE'S LATEST INPUT:
 {user_prompt}
+
+IMPORTANT: The CASE FILE above contains all necessary context for the investigation. Do not assume no content is provided — use the blueprint to generate the story.
+Do not ask the user for ACTIVE_SESSION_DATA, ACTIVE_SCENARIO, ACTIVE_TOPIC, ACTIVE_TOPIC_DEFINITION, or any missing scenario details.
+You have everything you need in the CASE FILE and the ACTIVE MOVE.
+
+If this is the first interaction (history is "(none)" and user_prompt is empty or initial), start the story immediately using the opening move from the blueprint. Do not wait for user input.
 
 ────────────────────────────────────────────────
 MANDATORY STEPS — WORK THROUGH ALL:

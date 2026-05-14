@@ -8,10 +8,10 @@
 
 ## How it works
 
-1. **You describe the case** — paste a topic, pick an investigation style (Cold Case / Murder / Conspiracy / Heist), set difficulty and length.
-2. **The engine researches the topic** — Gemma 4 produces a structured brief of core concepts, key facts, and common misconceptions.
-3. **A full session blueprint is generated** — a noir narrative with scenes, NPCs, clues, branching dialogue moves, and contingency plans, all grounded in your material.
-4. **You play the detective** — a chat interface lets you interrogate witnesses, examine clues, and advance the case. You only progress when your answers are factually correct.
+1. **You describe the case** - paste a topic, pick a style, set difficulty and length.
+2. **The engine researches the topic** - Gemma 4 produces core concepts, key facts, and common misconceptions.
+3. **A session blueprint is generated** - scenes, clues, branching moves, and endings are built around the topic.
+4. **You play the detective** - a single chat interface advances the case when your answers are factually correct.
 
 The story adapts in real time: wrong answers redirect to remediation moves, correct answers unlock the next scene. The session closes with a performance-aware line (success / partial / fail).
 
@@ -24,7 +24,7 @@ main.py          FastAPI backend — three LLM passes + session management
 setup_prompt.txt System prompt for blueprint generation (the "case architect")
 teacher_system_prompt.txt  System prompt for the in-session teacher/narrator agent
 teacher_user_prompt.txt    User-turn template for the teacher agent
-index.html       Setup UI (material upload, narrator config, case settings)
+index.html       Setup UI (narrator config and case settings)
 chat.html        Chat UI (in-session detective interface)
 style.css / script.js      Setup page styles and logic
 chat.css / chat.js         Chat page styles and logic
@@ -79,11 +79,11 @@ Open `http://localhost:8000` in your browser.
 
 ## Usage
 
-1. **Material (optional)** — drop a PDF, DOCX, TXT, or image. The text is extracted and passed to the blueprint generator as additional source material.
-2. **Narrator** — give your narrator a name, role, and personality. Hit "Surprise me" for a random preset.
-3. **The case** — describe your exam topic in plain text. Choose an investigation style, language, session length, school type / grade, and academic difficulty.
-4. **Open the case** — the three-pass pipeline runs (≈30–90 s depending on hardware). You are redirected to the chat interface when ready.
-5. **Play** — type your answers as the detective. A progress bar shows your current phase. Use the hint button if you're stuck.
+1. **Narrator** - give your narrator a name, role, personality, and optional traits.
+2. **Material** - optionally upload TXT, MD or CSV files as source material. Other files are listed by name only.
+3. **The case** - describe your exam topic in plain text. Choose an investigation style, language, session length, school type / grade, and academic difficulty.
+4. **Open the case** - the three-pass pipeline runs (about 30-90 s depending on hardware). You are redirected to the chat interface when ready.
+5. **Play** - type your answers as the detective. The sidebar shows your current case act. Use the hint button if you're stuck.
 
 ---
 
@@ -103,7 +103,7 @@ Open `http://localhost:8000` in your browser.
 | Style | Mood | Structure |
 |-------|------|-----------|
 | **Cold Case** | Melancholy, archival | Sparse evidence, reconstructed timeline |
-| **Murder** | Urgent, tense | Fresh scene, alibi testing, interrogation |
+| **Murder** | Urgent, tense | Fresh scene, clue testing |
 | **Conspiracy** | Paranoid, layered | Web of actors, find the connecting thread |
 | **Heist** | Cerebral, procedural | Trace the method, path, and culprit |
 
