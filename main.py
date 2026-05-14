@@ -173,6 +173,8 @@ class SessionBlueprint:
             raise ValueError("No JSON found in model response")
         json_str = match.group()
         json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", json_str)
+        # Escape unescaped backslashes in strings
+        json_str = re.sub(r'\\(?![\\"/bfnrt])', r'\\\\', json_str)
         json_str = re.sub(
             r'"((?:[^"\\]|\\.)*)"',
             lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
@@ -246,15 +248,6 @@ class ChatRequest(BaseModel):
     session_id: str
     message:    str
     history:    list[ChatMessage] = []
-
-class InterrogateRequest(BaseModel):
-    session_id:   str
-    character_id: str
-    message:      str
-    history:      list[ChatMessage] = []
-
-class DebugGotoRequest(BaseModel):
-    move_id: str
 
 # ── Ollama helpers ───────────────────────────────────────────────
 
@@ -533,29 +526,7 @@ def _init_state(blueprint: SessionBlueprint) -> dict:
         "turn_count":            0,
         "correct_count":         0,
         "closed":                False,
-        "appeared_character_ids": [],
     }
-
-def _update_appeared_characters(blueprint: SessionBlueprint, state: dict,
-                                  visited_move_ids: list[str]) -> None:
-    appeared = set(state.get("appeared_character_ids", []))
-    all_move_ids = {m.id for m in blueprint.moves}
-    for char in blueprint.characters:
-        for move_id in char.appears_in_moves:
-            if move_id in visited_move_ids:
-                appeared.add(char.id)
-    # Aggressive unlock: any character whose appears_in_moves references invalid IDs
-    for char in blueprint.characters:
-        if char.appears_in_moves and not any(mid in all_move_ids for mid in char.appears_in_moves):
-            appeared.add(char.id)
-    # Aggressive unlock: characters with no appears_in_moves at all
-    for char in blueprint.characters:
-        if not char.appears_in_moves:
-            appeared.add(char.id)
-    # Safety net: after 2 turns, unlock everyone regardless
-    if state.get("turn_count", 0) >= 2 and blueprint.characters:
-        appeared.update(c.id for c in blueprint.characters)
-    state["appeared_character_ids"] = list(appeared)
 
 def _phase_index_for_move(blueprint: SessionBlueprint, move_id: str) -> int:
     move = blueprint.get_move(move_id)
@@ -665,7 +636,6 @@ def chat(req: ChatRequest):
             "reply":                  _closing_line(blueprint, state),
             "phase_index":            len(blueprint.phases) - 1,
             "closed":                 True,
-            "appeared_character_ids": state.get("appeared_character_ids", []),
         }
 
     current_move = blueprint.get_move(state["current_move_id"])
@@ -686,8 +656,6 @@ def chat(req: ChatRequest):
         if current_move and current_move.id not in state["visited_move_ids"]:
             state["visited_move_ids"].append(current_move.id)
         _apply_state_signal(signal, current_move, blueprint, state)
-
-    _update_appeared_characters(blueprint, state, state["visited_move_ids"])
     phase_index = _phase_index_for_move(blueprint, state["current_move_id"])
 
     response: dict = {
@@ -695,7 +663,6 @@ def chat(req: ChatRequest):
         "phase_index":            phase_index,
         "mood":                   _mood_for(blueprint.session.mode, phase_index),
         "closed":                 state["closed"],
-        "appeared_character_ids": state.get("appeared_character_ids", []),
     }
     if state["closed"]:
         response["closing_line"] = _closing_line(blueprint, state)
@@ -713,7 +680,7 @@ def chat_stream(req: ChatRequest):
         closing = _closing_line(blueprint, state)
         def closed_gen():
             yield f"data: {json.dumps({'chunk': closing})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'closed': True, 'closing_line': closing, 'phase_index': len(blueprint.phases) - 1, 'appeared_character_ids': state.get('appeared_character_ids', [])})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'closed': True, 'closing_line': closing, 'phase_index': len(blueprint.phases) - 1})}\n\n"
         return StreamingResponse(
             closed_gen(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
@@ -752,8 +719,6 @@ def chat_stream(req: ChatRequest):
             if current_move and current_move.id not in state["visited_move_ids"]:
                 state["visited_move_ids"].append(current_move.id)
             _apply_state_signal(signal, current_move, blueprint, state)
-
-        _update_appeared_characters(blueprint, state, state["visited_move_ids"])
         phase_index = _phase_index_for_move(blueprint, state["current_move_id"])
 
         done_data: dict = {
@@ -762,7 +727,6 @@ def chat_stream(req: ChatRequest):
             "phase_index":            phase_index,
             "mood":                   _mood_for(blueprint.session.mode, phase_index),
             "closed":                 state["closed"],
-            "appeared_character_ids": state.get("appeared_character_ids", []),
             "accuracy_ratio":         state.get("correct_count", 0) / max(state.get("turn_count", 1), 1),
         }
         if state["closed"]:
@@ -773,126 +737,6 @@ def chat_stream(req: ChatRequest):
         event_gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-@app.post("/api/interrogate")
-def interrogate(req: InterrogateRequest):
-    blueprint = _sessions.get(req.session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    character = blueprint.get_character(req.character_id)
-    if not character:
-        raise HTTPException(status_code=404, detail="Character not found")
-
-    state = _session_state.get(req.session_id, {})
-    appeared = state.get("appeared_character_ids", [])
-    # Fallback: if appeared list is empty but characters exist, allow all
-    if appeared and req.character_id not in appeared:
-        raise HTTPException(status_code=403, detail="Character has not appeared in the story yet")
-
-    system_template = _load_prompt("interrogation_system_prompt.txt")
-    system_prompt = system_template.format(
-        character_name=character.name,
-        character_role=character.role,
-        character_personality=character.personality,
-        character_voice=character.voice,
-        character_knowledge=character.knowledge,
-        character_secrets=character.secrets,
-        character_ignorant_of=character.ignorant_of,
-        language=blueprint.session.language,
-    )
-
-    history_text = "(none)"
-    if req.history:
-        lines = []
-        for msg in req.history:
-            label = "DETECTIVE" if msg.role == "user" else character.name
-            lines.append(f"{label}: {msg.content}")
-        history_text = "\n".join(lines)
-
-    user_message = f"CONVERSATION SO FAR:\n{history_text}\n\nDETECTIVE: {req.message}"
-
-    try:
-        reply = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
-    except requests.RequestException as e:
-        raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
-
-    return {"reply": reply}
-
-@app.get("/api/session/{session_id}")
-def get_session(session_id: str):
-    blueprint = _sessions.get(session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-    state = _session_state.get(session_id, _init_state(blueprint))
-    return {
-        "appeared_character_ids": state.get("appeared_character_ids", []),
-        "turn_count":             state.get("turn_count", 0),
-        "closed":                 state.get("closed", False),
-    }
-
-# ── Debug API (all routes gated by /api/debug/ prefix) ──────────
-
-@app.get("/api/debug/{session_id}/state")
-def debug_state(session_id: str):
-    blueprint = _sessions.get(session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-    state = _session_state.get(session_id, _init_state(blueprint))
-    current_move = blueprint.get_move(state["current_move_id"])
-    return {
-        "session_id": session_id,
-        "state": state,
-        "current_move": dataclasses.asdict(current_move) if current_move else None,
-        "blueprint_summary": {
-            "session_id":    blueprint.session_id,
-            "topic":         blueprint.topic.core_subject,
-            "teacher":       blueprint.teacher.name,
-            "language":      blueprint.session.language,
-            "total_moves":   len(blueprint.moves),
-            "total_phases":  len(blueprint.phases),
-            "move_ids":      [m.id for m in blueprint.moves],
-            "character_ids": [c.id for c in blueprint.characters],
-        },
-    }
-
-@app.post("/api/debug/{session_id}/advance")
-def debug_advance(session_id: str):
-    """Force-advance the session without asking the model."""
-    blueprint = _sessions.get(session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-    state = _session_state.setdefault(session_id, _init_state(blueprint))
-    current_move = blueprint.get_move(state["current_move_id"])
-    if current_move and current_move.id not in state["visited_move_ids"]:
-        state["visited_move_ids"].append(current_move.id)
-    _apply_state_signal("ADVANCE", current_move, blueprint, state)
-    _update_appeared_characters(blueprint, state, state["visited_move_ids"])
-    return {"ok": True, "new_move_id": state["current_move_id"], "closed": state["closed"]}
-
-@app.post("/api/debug/{session_id}/goto")
-def debug_goto(session_id: str, req: DebugGotoRequest):
-    """Jump directly to any move by ID."""
-    blueprint = _sessions.get(session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if not blueprint.get_move(req.move_id):
-        raise HTTPException(status_code=404, detail=f"Move '{req.move_id}' not found")
-    state = _session_state.setdefault(session_id, _init_state(blueprint))
-    state["current_move_id"] = req.move_id
-    if req.move_id not in state["visited_move_ids"]:
-        state["visited_move_ids"].append(req.move_id)
-    return {"ok": True, "current_move_id": req.move_id}
-
-@app.post("/api/debug/{session_id}/unlock_chars")
-def debug_unlock_chars(session_id: str):
-    """Make all characters available in the interrogation tab immediately."""
-    blueprint = _sessions.get(session_id)
-    if not blueprint:
-        raise HTTPException(status_code=404, detail="Session not found")
-    state = _session_state.setdefault(session_id, _init_state(blueprint))
-    state["appeared_character_ids"] = [c.id for c in blueprint.characters]
-    return {"ok": True, "unlocked": state["appeared_character_ids"]}
 
 # ── Serve frontend ───────────────────────────────────────────────
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

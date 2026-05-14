@@ -189,6 +189,13 @@ body {
   position: relative;
 }
 
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -250,28 +257,6 @@ body {
   display: flex; align-items: center; gap: 10px;
 }
 
-.mood-pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 12px 6px 8px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  font-size: 11.5px;
-  color: var(--ink);
-  transition: background .8s ease, border-color .8s ease;
-}
-.mood-pill .swatch {
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-2), var(--accent));
-  box-shadow: 0 0 8px var(--glow);
-  transition: background .8s ease;
-}
-.mood-pill em {
-  color: var(--ink-mute);
-  font-style: normal;
-}
-
 .icon-btn {
   width: 32px; height: 32px;
   border-radius: 9px;
@@ -287,68 +272,6 @@ body {
   color: var(--ink);
 }
 .icon-btn svg { width: 14px; height: 14px; }
-.icon-btn.muted { opacity: 0.35; }
-.icon-btn.muted:hover { opacity: 0.70; }
-
-/* ====================================================
-   TAB NAVIGATION
-==================================================== */
-.tab-nav {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--line);
-  padding: 0 28px;
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
-  backdrop-filter: blur(4px);
-  flex-shrink: 0;
-}
-
-.tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--ink-mute);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  margin-bottom: -1px;
-  transition: color .15s, border-bottom-color .15s;
-  white-space: nowrap;
-}
-.tab-btn:hover { color: var(--ink-dim); }
-.tab-btn.active {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-}
-.tab-btn svg { flex-shrink: 0; }
-
-.tab-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--accent) 80%, transparent);
-  color: var(--ink);
-  font-weight: 700;
-  line-height: 1.4;
-  transition: background .8s ease;
-}
-.tab-badge:empty { display: none; }
-
-/* ====================================================
-   TAB PANELS
-==================================================== */
-.tab-panel {
-  display: none;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-.tab-panel.active { display: flex; }
 
 /* ====================================================
    TRANSCRIPT
@@ -691,138 +614,9 @@ body {
 .btn-return:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 /* ====================================================
-   INTERROGATION PANEL
-==================================================== */
-.char-selector-bar {
-  display: flex;
-  gap: 10px;
-  padding: 14px 28px;
-  border-bottom: 1px solid var(--line);
-  overflow-x: auto;
-  flex-shrink: 0;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.06) transparent;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  backdrop-filter: blur(4px);
-  align-items: center;
-}
-.char-selector-bar::-webkit-scrollbar { height: 4px; }
-.char-selector-bar::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
-  border-radius: 99px;
-}
-
-.no-chars-msg {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink-mute);
-  font-size: 13px;
-  font-style: italic;
-  padding: 4px 0;
-}
-
-.char-card {
-  flex-shrink: 0;
-  padding: 10px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 130px;
-  max-width: 180px;
-  transition: border-color .15s, background .15s;
-}
-.char-card:hover:not(.locked) {
-  background: var(--surface-2);
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.char-card.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.char-card.locked {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-
-.char-card-initials {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--surface-2), var(--surface));
-  border: 1px solid var(--line);
-  display: grid; place-items: center;
-  font-size: 11px; font-weight: 700;
-  color: var(--accent-2);
-  margin-bottom: 4px;
-  transition: background .8s ease;
-}
-
-.char-card-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.char-card-role {
-  font-size: 11px;
-  color: var(--ink-mute);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Interrogation NPC avatar uses accent color for character name */
-.msg.npc-msg .av {
-  background: linear-gradient(135deg, var(--surface-2), var(--surface));
-  color: var(--accent-2);
-  font-size: 11px;
-  font-weight: 700;
-  transition: background .8s ease;
-}
-
-/* ====================================================
-   DEBUG OUTPUT
-==================================================== */
-.debug-msg {
-  font-family: "Geist Mono", monospace;
-  font-size: 12px;
-  line-height: 1.7;
-  background: rgba(0, 80, 30, 0.12);
-  border: 1px solid rgba(109, 187, 138, 0.18);
-  border-left: 3px solid rgba(109, 187, 138, 0.45);
-  border-radius: 8px;
-  padding: 10px 14px;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.debug-title {
-  font-weight: 700;
-  color: #8de8a8;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 10px;
-  margin-bottom: 5px;
-}
-
-.debug-line {
-  color: #6dbb8a;
-}
-
-.debug-line:empty::after { content: "\00a0"; }
-
-/* ====================================================
    RESPONSIVE
 ==================================================== */
 @media (max-width: 860px) {
   .feed { padding-left: 16px; padding-right: 16px; }
   .composer-wrap { padding-left: 16px; padding-right: 16px; }
-  .tab-nav { padding-left: 16px; padding-right: 16px; }
-  .char-selector-bar { padding-left: 16px; padding-right: 16px; }
 }

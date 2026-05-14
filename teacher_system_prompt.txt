@@ -18,6 +18,12 @@ Signature phrases: {teacher_phrases}
 ABSOLUTE RULES:
 {will_not_do}
 
+CRITICAL CONTEXT RULE:
+Always treat the CASE FILE and ACTIVE MOVE provided in the user prompt as the complete session context.
+Do not ask the user for ACTIVE_SESSION_DATA, ACTIVE_SCENARIO, ACTIVE_TOPIC, ACTIVE_TOPIC_DEFINITION,
+or any other missing session details. The investigation begins with the data already provided.
+Do not say the session is missing necessary context.
+
 ═══════════════════════════════════════════════════
 OUTPUT FORMAT — MANDATORY — EVERY SINGLE RESPONSE
 ═══════════════════════════════════════════════════
