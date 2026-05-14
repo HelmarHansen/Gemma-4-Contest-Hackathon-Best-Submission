@@ -15,13 +15,27 @@ MODEL      = "gemma4"
 
 # ── Ollama parameter presets ─────────────────────────────────────
 _OPTS_RESEARCH  = {"temperature": 0.15, "top_p": 0.85, "top_k": 30,
-                   "repeat_penalty": 1.05, "num_predict": 1024}
+                   "repeat_penalty": 1.05, "num_predict": 512}
 _OPTS_BLUEPRINT = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
-                   "repeat_penalty": 1.10, "num_predict": 12000}
+                   "repeat_penalty": 1.10, "num_predict": 6000}
 _OPTS_VALIDATE  = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
                    "repeat_penalty": 1.00, "num_predict": 512}
 _OPTS_CHAT      = {"temperature": 0.30, "top_p": 0.88, "top_k": 45,
                    "repeat_penalty": 1.20, "num_predict": 1500}
+
+# ── Mood mapping ─────────────────────────────────────────────────
+
+_MOOD_BY_MODE: dict[str, list[str]] = {
+    "Cold Case":  ["calm",    "calm",    "neutral", "tense",  "calm"   ],
+    "Murder":     ["neutral", "warm",    "tense",   "danger", "danger" ],
+    "Conspiracy": ["neutral", "neutral", "tense",   "danger", "tense"  ],
+    "Heist":      ["warm",    "warm",    "tense",   "tense",  "neutral"],
+}
+_MOOD_DEFAULT = ["neutral", "warm", "tense", "tense", "danger"]
+
+def _mood_for(mode: str, phase_idx: int) -> str:
+    phases = _MOOD_BY_MODE.get(mode, _MOOD_DEFAULT)
+    return phases[min(phase_idx, len(phases) - 1)]
 
 # ── Blueprint dataclasses ────────────────────────────────────────
 
@@ -386,26 +400,7 @@ def run_teacher_agent(
 
     return raw, state
 
-# ── Research & validation system prompts ────────────────────────
-
-_RESEARCH_SYSTEM = """\
-You are a curriculum expert and subject-matter specialist. Given a topic, school level, and grade,
-produce a structured research brief that will be used to build an exam-prep detective scenario.
-
-Output plain text with these four sections — no JSON, no markdown headers:
-
-CORE CONCEPTS: List the 6–10 most important concepts, terms, or mechanisms the student must understand.
-For each, write one precise definition sentence.
-
-KEY FACTS: List 5–8 concrete, specific, measurable facts (dates, values, names, formulas, quantities)
-that an expert in this topic would know and that could serve as detective clues.
-
-COMMON MISCONCEPTIONS: List 3–5 things students typically get wrong about this topic.
-Each misconception should be a specific wrong belief, not a vague category.
-
-DIFFICULTY CALIBRATION: Given the school type and grade, describe in 2–3 sentences what level of
-precision, which sub-topics, and which vocabulary are age-appropriate for this group.
-"""
+# ── Validation system prompt ─────────────────────────────────────
 
 _VALIDATION_SYSTEM = """\
 You are a factual accuracy checker for educational content.
@@ -417,43 +412,93 @@ Output exactly one line per entry:
 No other text. Be strict: flag anything that is wrong, oversimplified to the point of being misleading, or not verifiable.
 """
 
-# ── Story builder ────────────────────────────────────────────────
+# ── Three-stage story builder ────────────────────────────────────
 
-def build_story(req: WorkRequest) -> SessionBlueprint:
-    research_user = (
+def _parse_json_stage(raw: str, label: str) -> dict:
+    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw)
+    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if not match:
+        raise ValueError(f"{label}: no JSON found in model response")
+    json_str = match.group()
+    depth = 0
+    last_close = -1
+    for i, ch in enumerate(json_str):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                last_close = i
+                break
+    if last_close != -1:
+        json_str = json_str[: last_close + 1]
+    return json.loads(json_str)
+
+def run_research_stage(req: "WorkRequest") -> dict:
+    system_prompt = _load_prompt("research_prompt.txt")
+    user_message = (
         f"Topic: {req.lesson.topic}\n"
         f"School type: {req.lesson.school_type or 'not specified'}\n"
-        f"Grade / class: {req.lesson.grade or 'not specified'}\n"
-        f"Material provided:\n{req.material[:3000] if req.material else 'none'}"
+        f"Grade: {req.lesson.grade or 'not specified'}\n"
+        f"Investigation style: {req.lesson.mode}\n"
+        f"Language: {req.lesson.language}\n"
+        f"Material:\n{req.material[:3000] if req.material else 'none'}"
     )
-    research = ask_ollama(_RESEARCH_SYSTEM, research_user, options=_OPTS_RESEARCH)
-    print("Research completed.")
+    raw = ask_ollama(system_prompt, user_message, options=_OPTS_RESEARCH)
+    print(f"Stage 1 raw length: {len(raw)}")
+    try:
+        return _parse_json_stage(raw, "Stage 1 Research")
+    except Exception as e:
+        print(f"Stage 1 parse failed ({e}), retrying…")
+        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:4000]
+        raw2 = ask_ollama("Output only valid JSON. No markdown, no text.", repair,
+                          options={**_OPTS_RESEARCH, "temperature": 0.05})
+        return _parse_json_stage(raw2, "Stage 1 Research (retry)")
 
-    with open("setup_prompt.txt", "r", encoding="utf-8") as f:
-        system_prompt = f.read()
+def run_task_design_stage(req: "WorkRequest", research: dict) -> dict:
+    system_prompt = _load_prompt("task_design_prompt.txt")
+    user_message = json.dumps({
+        "research": research,
+        "lesson":   req.lesson.model_dump(),
+    }, ensure_ascii=False)
+    raw = ask_ollama(system_prompt, user_message,
+                     options={**_OPTS_BLUEPRINT, "num_predict": 6000})
+    print(f"Stage 2 raw length: {len(raw)}")
+    try:
+        return _parse_json_stage(raw, "Stage 2 Tasks")
+    except Exception as e:
+        print(f"Stage 2 parse failed ({e}), retrying…")
+        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:8000]
+        raw2 = ask_ollama("Output only valid JSON. No markdown, no text.", repair,
+                          options={**_OPTS_BLUEPRINT, "temperature": 0.05, "num_predict": 6000})
+        return _parse_json_stage(raw2, "Stage 2 Tasks (retry)")
 
+def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "SessionBlueprint":
+    system_prompt = _load_prompt("setup_prompt.txt")
     user_message = json.dumps({
         "teacher":        req.teacher.model_dump(),
         "lesson":         req.lesson.model_dump(),
         "material":       req.material,
         "topic_research": research,
+        "task_list":      tasks,
     }, ensure_ascii=False)
-
-    raw = ask_ollama(system_prompt, user_message, options=_OPTS_BLUEPRINT)
+    raw = ask_ollama(system_prompt, user_message, options={**_OPTS_BLUEPRINT, "num_predict": 5000})
+    print(f"Stage 3 raw length: {len(raw)}")
     try:
-        blueprint = SessionBlueprint.from_llm_response(raw)
+        return SessionBlueprint.from_llm_response(raw)
     except (ValueError, json.JSONDecodeError) as first_err:
-        print(f"Blueprint parse failed ({first_err}), retrying with JSON-repair prompt…")
+        print(f"Stage 3 blueprint parse failed ({first_err}), retrying with repair…")
         repair_prompt = (
-            "The following text contains a JSON object that has syntax errors. "
+            "The following text contains a JSON object with syntax errors. "
             "Output only the corrected, complete, valid JSON — no explanation, no markdown:\n\n"
             + raw[:12000]
         )
         raw2 = ask_ollama("You are a JSON repair tool. Output only valid JSON.",
                           repair_prompt,
                           options={**_OPTS_BLUEPRINT, "temperature": 0.05})
-        blueprint = SessionBlueprint.from_llm_response(raw2)
+        return SessionBlueprint.from_llm_response(raw2)
 
+def _run_validation(blueprint: "SessionBlueprint") -> None:
     try:
         entries = "\n\n".join(
             f"[{i}] Subject: {blueprint.topic.core_subject}\n"
@@ -464,12 +509,10 @@ def build_story(req: WorkRequest) -> SessionBlueprint:
         flags = [l for l in val_result.splitlines() if l.strip().startswith("FLAG:")]
         if flags:
             print(f"Validation flags ({len(flags)}):")
-            for f_line in flags:
-                print(" ", f_line)
+            for fl in flags:
+                print(" ", fl)
     except Exception as e:
         print(f"Validation skipped: {e}")
-
-    return blueprint
 
 # ── Session store ────────────────────────────────────────────────
 
@@ -534,9 +577,12 @@ def _apply_state_signal(
 
 @app.post("/api/work")
 def work(req: WorkRequest):
-    print("Request received")
+    print("Request received (sync)")
     try:
-        blueprint = build_story(req)
+        research  = run_research_stage(req)
+        tasks     = run_task_design_stage(req, research)
+        blueprint = run_story_stage(req, research, tasks)
+        _run_validation(blueprint)
         _sessions[blueprint.session_id] = blueprint
         _session_state[blueprint.session_id] = _init_state(blueprint)
         print(f"Blueprint generated: {blueprint.session_id}")
@@ -545,6 +591,37 @@ def work(req: WorkRequest):
         raise HTTPException(status_code=422, detail=f"Model returned invalid JSON: {e}")
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
+
+@app.post("/api/work/stream")
+def work_stream(req: WorkRequest):
+    def gen():
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 1, 'label': 'Analyzing topic and concepts…'})}\n\n"
+            research = run_research_stage(req)
+            yield f"data: {json.dumps({'type': 'stage_done', 'stage': 1})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 2, 'label': 'Designing learning tasks…'})}\n\n"
+            tasks = run_task_design_stage(req, research)
+            yield f"data: {json.dumps({'type': 'stage_done', 'stage': 2})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 3, 'label': 'Building your noir case…'})}\n\n"
+            blueprint = run_story_stage(req, research, tasks)
+            _run_validation(blueprint)
+
+            _sessions[blueprint.session_id] = blueprint
+            _session_state[blueprint.session_id] = _init_state(blueprint)
+
+            yield f"data: {json.dumps({'type': 'stage_done', 'stage': 3})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'blueprint': blueprint.to_dict()})}\n\n"
+
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
@@ -584,6 +661,7 @@ def chat(req: ChatRequest):
     response: dict = {
         "reply":                  reply,
         "phase_index":            phase_index,
+        "mood":                   _mood_for(blueprint.session.mode, phase_index),
         "closed":                 state["closed"],
     }
     if state["closed"]:
@@ -647,6 +725,7 @@ def chat_stream(req: ChatRequest):
             "done":                   True,
             "state_signal":           signal,
             "phase_index":            phase_index,
+            "mood":                   _mood_for(blueprint.session.mode, phase_index),
             "closed":                 state["closed"],
             "accuracy_ratio":         state.get("correct_count", 0) / max(state.get("turn_count", 1), 1),
         }

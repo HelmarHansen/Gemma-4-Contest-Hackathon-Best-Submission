@@ -1,4 +1,95 @@
 body {
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+}
+
+.brand-name {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.brand-name em {
+  font-style: normal;
+  color: var(--accent-light);
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+
+.main {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.scroll {
+  padding: 28px;
+}
+
+.hero {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--accent-light);
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-size: 38px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.lede {
+  font-size: 14px;
+  color: var(--ink-dim);
+  max-width: 540px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.card-head {
+  margin-bottom: 16px;
+}
+
+.card-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .card-desc {
@@ -11,7 +102,6 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
-
 .field {
   display: flex;
   flex-direction: column;
