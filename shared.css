@@ -1,83 +1,60 @@
+/* Shared design tokens and base styles — included by both pages */
+
 :root {
-  --bg: #141719;
-  --surface: #1b1f22;
-  --surface-2: #22272a;
-
-  --ink: #f3f1eb;
-  --ink-dim: #b6b0a7;
-  --ink-mute: #7f7a73;
-
-  --accent: #c0614d;
-  --accent-light: #d77d67;
-
-  --line: rgba(255,255,255,0.08);
-
-  --r: 12px;
-  --r-lg: 18px;
-
-  --shadow: 0 8px 24px rgba(0,0,0,0.25);
+  --bg:           #161b1d;
+  --surface:      #1c2225;
+  --surface-2:    #232a2d;
+  --ink:          #ebe7df;
+  --ink-dim:      #b0aba2;
+  --ink-mute:     #7a766f;
+  --accent:       #b85544;
+  --accent-light: #d27259;
+  --r:            14px;
+  --r-lg:         20px;
+  --shadow:       0 18px 36px -16px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.025) inset;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  height: 100%;
-}
-
-body {
-  font-family: "Geist", sans-serif;
-  background: var(--bg);
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
 
 .app {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 304px 1fr;
   height: 100vh;
 }
 
 .sidebar {
-  border-right: 1px solid var(--line);
-  background: var(--surface);
   display: flex;
   flex-direction: column;
+  border-right: 1px solid var(--line);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 22px 22px 18px;
   border-bottom: 1px solid var(--line);
 }
 
 .sidebar h3 {
-  margin: 12px 20px;
-  font-size: 11px;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  letter-spacing: .14em;
   color: var(--ink-mute);
+  font-weight: 500;
+  margin: 8px 22px;
 }
 
 .sidebar-foot {
-  margin-top: auto;
-  padding: 14px 16px;
   border-top: 1px solid var(--line);
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 @media (max-width: 860px) {
-  .app {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    display: none;
-  }
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
 }
