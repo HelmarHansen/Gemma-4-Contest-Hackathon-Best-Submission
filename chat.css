@@ -1,32 +1,21 @@
 /* chat.css — MindHeist Session */
 
 :root {
-  --bg:             #161b1d;
-  --surface:        #1c2225;
-  --surface-2:      #232a2d;
-  --ink:            #ebe7df;
-  --ink-dim:        #b0aba2;
-  --ink-mute:       #7a766f;
   --line:           rgba(235,231,223,0.10);
-  --accent:         #b85544;
-  --accent-2:       #d27259;
+  --accent-2:       var(--accent-light);
   --glow:           rgba(184,85,68,0.18);
   --ambient:        rgba(94,124,107,0.10);
   --user-bubble:    #2a3236;
   --user-ink:       #ebe7df;
   --teacher-bubble: #1c2225;
   --teacher-ink:    #ebe7df;
-  --teacher-accent: #b85544;
-  --radius:         14px;
-  --radius-lg:      20px;
-  --shadow-2:       0 18px 36px -16px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.025) inset;
+  --teacher-accent: var(--accent);
+  --radius:         var(--r);
+  --radius-lg:      var(--r-lg);
+  --shadow-2:       var(--shadow);
 }
 
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-
 body {
-  margin: 0;
   font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -42,34 +31,17 @@ body {
   transition: background-color .8s ease;
 }
 
-.app {
-  display: grid;
-  grid-template-columns: 304px 1fr;
-  height: 100vh;
-}
-
 /* ====================================================
    SIDEBAR
 ==================================================== */
 .sidebar {
-  border-right: 1px solid var(--line);
   background:
     linear-gradient(180deg, rgba(255,255,255,0.015), transparent 30%),
     linear-gradient(180deg,
       color-mix(in srgb, var(--bg) 60%, transparent),
       color-mix(in srgb, var(--bg) 90%, transparent));
   backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
   transition: background .8s ease, border-color .8s ease;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 22px 22px 18px;
-  border-bottom: 1px solid var(--line);
 }
 
 .brand .mark {
@@ -127,15 +99,6 @@ body {
   color: var(--ink);
 }
 .back-btn svg { width: 14px; height: 14px; }
-
-.sidebar h3 {
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  font-weight: 500;
-  margin: 6px 22px 8px;
-}
 
 .scenes {
   flex: 1;
@@ -198,12 +161,6 @@ body {
   font-family: "Geist Mono", monospace;
   font-size: 10.5px;
   color: var(--ink-mute);
-}
-
-.sidebar-foot {
-  border-top: 1px solid var(--line);
-  padding: 14px 16px;
-  display: flex; align-items: center; gap: 10px;
 }
 
 .avatar {
@@ -862,8 +819,6 @@ body {
    RESPONSIVE
 ==================================================== */
 @media (max-width: 860px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .feed { padding-left: 16px; padding-right: 16px; }
   .composer-wrap { padding-left: 16px; padding-right: 16px; }
   .tab-nav { padding-left: 16px; padding-right: 16px; }
