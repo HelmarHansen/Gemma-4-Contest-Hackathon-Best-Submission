@@ -529,3 +529,275 @@ h1 em { font-style: italic; color: var(--red-bright); }
   .main { height: auto; overflow: visible; }
   .scroll { padding: 24px; overflow: visible; }
 }
+
+/* ═══════════════════════════════════════════════════
+   LOADING OVERLAY
+═══════════════════════════════════════════════════ */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  overflow: hidden;
+}
+.loading-overlay.lo-open {
+  display: flex;
+}
+.loading-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.loading-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease-in;
+}
+
+/* Background glows */
+.lo-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.lo-glow-1 {
+  width: 900px; height: 600px;
+  top: -200px; right: -150px;
+  background: radial-gradient(circle, rgba(184,85,68,0.14), transparent 60%);
+  animation: lo-glow-float 5.5s ease-in-out infinite alternate;
+}
+.lo-glow-2 {
+  width: 700px; height: 700px;
+  bottom: -280px; left: -180px;
+  background: radial-gradient(circle, rgba(74,130,155,0.09), transparent 60%);
+  animation: lo-glow-float 7s ease-in-out infinite alternate-reverse;
+  animation-delay: 1.8s;
+}
+@keyframes lo-glow-float {
+  from { transform: scale(1) translate(0, 0); opacity: 0.65; }
+  to   { transform: scale(1.07) translate(12px, -14px); opacity: 1; }
+}
+
+/* Scanlines */
+.lo-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.022) 2px,
+    rgba(0, 0, 0, 0.022) 4px
+  );
+}
+
+/* Content wrapper */
+.lo-content {
+  position: relative;
+  z-index: 1;
+  width: min(480px, 90vw);
+}
+
+/* Brand */
+.lo-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 38px;
+}
+.lo-brand-mark {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: radial-gradient(120% 120% at 30% 20%, var(--red-bright), var(--red) 50%, var(--red-deep));
+  display: grid; place-items: center;
+  color: white;
+  flex-shrink: 0;
+}
+.lo-brand-mark svg { width: 14px; height: 14px; }
+.lo-brand-name {
+  font-family: "Instrument Serif", serif;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+}
+.lo-brand-name em { font-style: italic; color: var(--red-bright); }
+
+/* Headline */
+.lo-title {
+  font-family: "Instrument Serif", serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.lo-subtitle {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-bottom: 48px;
+  min-height: 18px;
+  transition: color 0.3s;
+}
+
+/* ── Stage list ── */
+.lo-stages {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 36px;
+}
+
+.lo-stage {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 16px;
+}
+
+.lo-stage-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lo-stage-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  position: relative;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.09);
+  transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+}
+.lo-stage-icon svg {
+  width: 18px; height: 18px;
+  color: rgba(235, 231, 223, 0.20);
+  transition: color 0.4s;
+  position: relative; z-index: 1;
+  flex-shrink: 0;
+}
+
+.lo-stage-line {
+  width: 1.5px;
+  flex: 1;
+  min-height: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 5px 0;
+  transition: background 0.7s ease;
+}
+
+.lo-stage-body {
+  padding-bottom: 30px;
+  padding-top: 10px;
+}
+
+.lo-stage-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(235, 231, 223, 0.28);
+  margin-bottom: 4px;
+  line-height: 1.3;
+  transition: color 0.4s;
+}
+
+.lo-stage-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(235, 231, 223, 0.15);
+  transition: color 0.4s;
+}
+
+/* ── ACTIVE ── */
+.lo-stage.active .lo-stage-icon {
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  animation: lo-pulse 2.4s ease-in-out infinite;
+}
+.lo-stage.active .lo-stage-icon svg { color: var(--red-bright); }
+
+/* Spinner ring */
+.lo-stage.active .lo-stage-icon::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: var(--red-bright);
+  border-right-color: color-mix(in srgb, var(--red) 28%, transparent);
+  animation: lo-spin 0.95s linear infinite;
+}
+
+.lo-stage.active .lo-stage-label { color: var(--ink); }
+.lo-stage.active .lo-stage-desc  { color: var(--ink-dim); }
+
+@keyframes lo-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 8%, transparent),
+                0 0 24px color-mix(in srgb, var(--red) 22%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--red) 6%, transparent),
+                0 0 38px color-mix(in srgb, var(--red) 35%, transparent);
+  }
+}
+@keyframes lo-spin { to { transform: rotate(360deg); } }
+
+/* ── DONE ── */
+.lo-stage.done .lo-stage-icon {
+  background: color-mix(in srgb, #6fbf73 11%, transparent);
+  border-color: color-mix(in srgb, #6fbf73 38%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, #6fbf73 18%, transparent);
+  animation: lo-done-pop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+.lo-stage.done .lo-stage-icon svg { color: #6fbf73; }
+.lo-stage.done .lo-stage-label { color: var(--ink-mute); }
+.lo-stage.done .lo-stage-desc  { color: rgba(235, 231, 223, 0.22); }
+.lo-stage.done .lo-stage-line  {
+  background: color-mix(in srgb, #6fbf73 18%, rgba(255, 255, 255, 0.06));
+}
+
+@keyframes lo-done-pop {
+  0%   { transform: scale(0.72); }
+  60%  { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+/* ── Progress bar ── */
+.lo-progress {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.lo-progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--red-deep), var(--red), var(--red-bright));
+  border-radius: 99px;
+  transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px var(--red-glow);
+}
+
+/* ── Footer ── */
+.lo-footer {
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-family: "Geist Mono", monospace;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lo-footer-dot {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--ink-mute);
+  opacity: 0.5;
+  flex-shrink: 0;
+}

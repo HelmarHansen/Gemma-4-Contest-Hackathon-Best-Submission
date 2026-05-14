@@ -58,62 +58,135 @@ setMood(MOOD_CONFIG.active || "neutral");
    only after first user gesture (Web Audio autoplay policy).
 ============================================================ */
 const MusicEngine = (() => {
-  // Per-phase: tempo (bpm), pentatonic scale (Hz), rhythmic step, note envelope volume
+  // Per-phase: tempo (bpm), melodic scale, bass roots, rhythmic step, voices, mood color
   const PHASES = [
-    { bpm: 50,  notes: [220.0, 261.6, 293.7, 349.2, 392.0], step: 5, vol: 0.065 }, // Setup — sparse, calm
-    { bpm: 63,  notes: [233.1, 277.2, 329.6, 369.9, 440.0], step: 4, vol: 0.075 }, // Investigation — steady
-    { bpm: 75,  notes: [246.9, 311.1, 370.0, 415.3, 493.9], step: 3, vol: 0.080 }, // Complication — rising
-    { bpm: 88,  notes: [261.6, 329.6, 392.0, 440.0, 523.3], step: 3, vol: 0.085 }, // Breakthrough — urgent
-    { bpm: 100, notes: [277.2, 329.6, 415.3, 466.2, 554.4], step: 2, vol: 0.090 }, // Confrontation — dense
+    { bpm: 52,  notes: [220.0, 261.6, 293.7, 349.2, 392.0, 523.3],
+      bass:  [110.0, 87.3], step: 6, vol: 0.06, padVol: 0.025, bassVol: 0.05, bright: 800  }, // Setup
+    { bpm: 64,  notes: [233.1, 277.2, 329.6, 369.9, 440.0, 554.4],
+      bass:  [116.5, 92.5], step: 5, vol: 0.07, padVol: 0.03, bassVol: 0.06, bright: 1100 }, // Investigation
+    { bpm: 78,  notes: [246.9, 311.1, 370.0, 415.3, 493.9, 587.3],
+      bass:  [123.5, 98.0], step: 4, vol: 0.075, padVol: 0.035, bassVol: 0.07, bright: 1400 }, // Complication
+    { bpm: 92,  notes: [261.6, 329.6, 392.0, 440.0, 523.3, 622.3],
+      bass:  [130.8, 103.8], step: 3, vol: 0.08, padVol: 0.04, bassVol: 0.075, bright: 1700 }, // Breakthrough
+    { bpm: 108, notes: [277.2, 329.6, 415.3, 466.2, 554.4, 659.3],
+      bass:  [138.6, 110.0], step: 2, vol: 0.085, padVol: 0.045, bassVol: 0.085, bright: 2000 }, // Confrontation
   ];
-  const MAX_GAIN = 0.08; // classroom-safe ceiling applied at master bus
+  const MAX_GAIN = 0.32;
 
-  let ctx = null, master = null, reverb = null;
+  let ctx = null, master = null, reverb = null, filter = null;
   let ticker = null, nextBeat = 0, beat = 0;
-  let phase = 0, muted = true, started = false;
+  let phase = 0, muted = false, started = false;
+  let prevMelodyIdx = 0;
+  let padOsc1 = null, padOsc2 = null, padGain = null;
 
   function buildReverb(c) {
-    const frames = c.sampleRate * 1.8;
+    const frames = c.sampleRate * 2.4;
     const buf = c.createBuffer(2, frames, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
       for (let i = 0; i < frames; i++)
-        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / frames, 2.5);
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / frames, 2.8);
     }
     const node = c.createConvolver();
     node.buffer = buf;
     return node;
   }
 
-  function tone(freq, time) {
+  // Melodic note with soft attack, long tail
+  function tone(freq, time, volScale = 1.0) {
     const cfg = PHASES[phase];
-    const dur  = (60 / cfg.bpm) * 3.0;
-    const osc  = ctx.createOscillator();
-    const env  = ctx.createGain();
+    const dur = (60 / cfg.bpm) * 3.2;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
     osc.type = "triangle";
     osc.frequency.value = freq;
     env.gain.setValueAtTime(0, time);
-    env.gain.linearRampToValueAtTime(cfg.vol, time + 0.009);
-    env.gain.exponentialRampToValueAtTime(cfg.vol * 0.20, time + 0.20);
+    env.gain.linearRampToValueAtTime(cfg.vol * volScale, time + 0.012);
+    env.gain.exponentialRampToValueAtTime(cfg.vol * volScale * 0.22, time + 0.22);
     env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
     osc.connect(env);
     env.connect(reverb);
+    env.connect(filter);
     osc.start(time);
     osc.stop(time + dur + 0.05);
+  }
+
+  // Bass note with slow attack, sub-bass weight
+  function bassTone(freq, time) {
+    const cfg = PHASES[phase];
+    const dur = (60 / cfg.bpm) * 6.0;
+    const osc = ctx.createOscillator();
+    const sub = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = "sine";
+    sub.type = "sine";
+    osc.frequency.value = freq;
+    sub.frequency.value = freq * 0.5;
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(cfg.bassVol, time + 0.08);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(env);
+    sub.connect(env);
+    env.connect(filter);
+    osc.start(time); sub.start(time);
+    osc.stop(time + dur + 0.05); sub.stop(time + dur + 0.05);
+  }
+
+  // Soft chord pad - continuous drone
+  function startPad() {
+    if (padGain) return;
+    const cfg = PHASES[phase];
+    padOsc1 = ctx.createOscillator();
+    padOsc2 = ctx.createOscillator();
+    padGain = ctx.createGain();
+    padOsc1.type = "sawtooth";
+    padOsc2.type = "sawtooth";
+    padOsc1.frequency.value = cfg.notes[0];
+    padOsc2.frequency.value = cfg.notes[2] * 0.5;
+    padOsc1.detune.value = -7;
+    padOsc2.detune.value = +5;
+    padGain.gain.value = 0;
+    padGain.gain.linearRampToValueAtTime(cfg.padVol, ctx.currentTime + 4.0);
+    padOsc1.connect(padGain);
+    padOsc2.connect(padGain);
+    padGain.connect(filter);
+    padOsc1.start(); padOsc2.start();
+  }
+
+  function updatePad() {
+    if (!padGain) return;
+    const cfg = PHASES[phase];
+    padOsc1.frequency.setTargetAtTime(cfg.notes[0], ctx.currentTime, 1.5);
+    padOsc2.frequency.setTargetAtTime(cfg.notes[2] * 0.5, ctx.currentTime, 1.5);
+    padGain.gain.setTargetAtTime(cfg.padVol, ctx.currentTime, 1.5);
+    filter.frequency.setTargetAtTime(cfg.bright, ctx.currentTime, 1.5);
   }
 
   function tick() {
     const cfg     = PHASES[phase];
     const beatSec = 60 / cfg.bpm;
     while (nextBeat < ctx.currentTime + 0.20) {
-      const idx = beat % cfg.notes.length;
+      // Melody - varied steps (not random, walking) so it sounds composed
       if (beat % cfg.step === 0) {
-        tone(cfg.notes[idx], nextBeat);
-        // Chord colour on every 4th structural beat
+        const drift = (Math.random() < 0.55) ? 1 : -1;
+        let next = prevMelodyIdx + drift * (1 + (Math.random() < 0.25 ? 1 : 0));
+        if (next < 0) next = 1;
+        if (next >= cfg.notes.length) next = cfg.notes.length - 2;
+        prevMelodyIdx = next;
+        tone(cfg.notes[next], nextBeat);
+
+        // Chord harmony on structural beats - third + fifth
         if (beat % (cfg.step * 4) === 0) {
-          const cidx = (idx + 2) % cfg.notes.length;
-          tone(cfg.notes[cidx], nextBeat + 0.018);
+          const third = (next + 2) % cfg.notes.length;
+          const fifth = (next + 4) % cfg.notes.length;
+          tone(cfg.notes[third], nextBeat + 0.020, 0.55);
+          tone(cfg.notes[fifth], nextBeat + 0.040, 0.40);
         }
+      }
+      // Bass - every 2 structural beats, alternating root/fifth
+      if (beat % (cfg.step * 2) === 0) {
+        const bassNote = cfg.bass[(beat / (cfg.step * 2)) % cfg.bass.length | 0];
+        bassTone(bassNote, nextBeat);
       }
       nextBeat += beatSec;
       beat++;
@@ -124,8 +197,14 @@ const MusicEngine = (() => {
     ctx    = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain();
     master.gain.value = 0;
+    filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = PHASES[phase].bright;
+    filter.Q.value = 0.5;
     reverb = buildReverb(ctx);
-    reverb.connect(master);
+    filter.connect(reverb);
+    filter.connect(master);     // dry path
+    reverb.connect(master);     // wet path
     master.connect(ctx.destination);
   }
 
@@ -134,6 +213,7 @@ const MusicEngine = (() => {
       if (!started) {
         started  = true;
         setup();
+        startPad();
         nextBeat = ctx.currentTime + 0.3;
         ticker   = setInterval(tick, 50);
       }
@@ -142,7 +222,10 @@ const MusicEngine = (() => {
     },
     setPhase(idx) {
       const next = Math.max(0, Math.min(idx, PHASES.length - 1));
-      if (next !== phase) { phase = next; beat = 0; }
+      if (next !== phase) {
+        phase = next; beat = 0; prevMelodyIdx = 0;
+        if (started) updatePad();
+      }
     },
     toggleMute() {
       muted = !muted;
@@ -503,17 +586,20 @@ async function handleCommand(text, feedTarget, scrollTarget) {
     scrollBottom(scrollTarget);
   }
 
-  if (cmd === "/help") {
+  if (cmd === "/help" || cmd === "/?") {
     dbg("Debug Commands", [
       "/status      — session state (turn, phase, move)",
       "/move        — active move details",
       "/answer      — expected answer for current move",
+      "/hint        — hint for current move",
       "/moves       — list all move IDs",
       "/skip        — force ADVANCE (skip current move)",
       "/goto <id>   — jump to move by ID",
       "/unlock      — unlock all characters for interrogation",
       "/phase       — current phase info",
       "/chars       — list all characters + unlock status",
+      "/solution    — show full solution (all expected answers)",
+      "/end         — force CLOSE the session",
     ]);
     return;
   }
@@ -643,6 +729,46 @@ async function handleCommand(text, feedTarget, scrollTarget) {
     dbg("Characters", chars.map(c =>
       `${appearedCharacterIds.has(c.id) ? "✓" : "✗"} ${c.id} — ${c.name} (${c.role})`
     ));
+    return;
+  }
+
+  if (cmd === "/hint") {
+    try {
+      const res = await fetch(`/api/debug/${sid}/state`);
+      const d = await res.json();
+      const m = d.current_move;
+      if (!m) { dbg("Hint", ["No active move"]); return; }
+      dbg("Hint", [
+        `move: ${m.id}`,
+        m.hint || "(no hint available)",
+      ]);
+    } catch (e) { dbg("Error", [e.message]); }
+    return;
+  }
+
+  if (cmd === "/solution") {
+    const moves = blueprint.moves || [];
+    if (!moves.length) { dbg("Solution", ["(no moves)"]); return; }
+    dbg("Full Solution", moves.map((m, i) =>
+      `${String(i + 1).padStart(2, "0")}. [${m.id}] ${m.expected_student_response}`
+    ));
+    return;
+  }
+
+  if (cmd === "/end") {
+    try {
+      // Use advance repeatedly until closing — simpler: just navigate to the closing move
+      const closingMove = (blueprint.moves || []).find(m => m.type === "closing");
+      if (!closingMove) { dbg("End", ["No closing move found"]); return; }
+      const res = await fetch(`/api/debug/${sid}/goto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ move_id: closingMove.id }),
+      });
+      const d = await res.json();
+      if (!res.ok) { dbg("Error", [d.detail]); return; }
+      dbg("Ended", [`Jumped to closing move: ${closingMove.id}`, "Answer correctly to trigger CLOSE."]);
+    } catch (e) { dbg("Error", [e.message]); }
     return;
   }
 
@@ -945,15 +1071,24 @@ function getInitials(name) {
 }
 
 function updateAppearedCharacters(ids) {
-  if (!ids || !ids.length) return;
   const prev = appearedCharacterIds.size;
-  ids.forEach(id => appearedCharacterIds.add(id));
-  if (appearedCharacterIds.size !== prev) {
-    rebuildCharacterSelector();
+  if (ids && ids.length) {
+    ids.forEach(id => appearedCharacterIds.add(id));
   }
+  // Always rebuild so locked cards show from turn 1
+  rebuildCharacterSelector();
   // Update badge
   const badge = document.getElementById("char-count-badge");
   badge.textContent = String(appearedCharacterIds.size);
+  if (appearedCharacterIds.size > prev && prev === 0) {
+    if (noCharsMsg) noCharsMsg.style.display = "none";
+  }
+}
+
+// Render the locked character cards immediately on page load
+if (blueprint.characters && blueprint.characters.length) {
+  rebuildCharacterSelector();
+  if (noCharsMsg) noCharsMsg.textContent = "Characters will unlock as you investigate";
 }
 
 function rebuildCharacterSelector() {

@@ -38,7 +38,10 @@ INPUT FIELDS
     "grade": string         // e.g. "Klasse 8", "10. Klasse", "1st year university"
   },
   "material": string,       // extracted file text, empty string if none
-  "topic_research": string  // pre-generated research brief with core concepts, key facts, misconceptions
+  "topic_research": {       // JSON brief from Stage 1: core_subject, core_concepts, key_facts, misconceptions, story_hooks
+  },
+  "task_list": {            // JSON from Stage 2: task_count, tasks[] — each task has id, concept, format, difficulty, core_knowledge, expected_answer, is_buffer, story_hook
+  }
 }
 
 OUTPUT
@@ -185,12 +188,18 @@ The final move must have type "closing".
 CHECK 4 — FIRST LINE AUDIT
 Read the "first_line" in opening.
 It must contain:
-  (1) what happened, where, when — specific facts, not vague atmosphere
-  (2) at least two concrete measurable details — but ONLY if those details appear in topic_research
-      or material. If no specific values are in the research, use general but accurate descriptors.
-  (3) the exact name of the first concept the student must demonstrate — stated explicitly,
-      not hinted at.
-If (3) is missing: rewrite the last sentence of first_line to name the concept directly.
+  (1) what happened, where, when — a specific crime or discovery, not vague atmosphere.
+      BAD: "Something strange happened at the institute."
+      GOOD: "Dr. Kellner was found dead in the sealed greenhouse at 06:12 AM. The sprinklers had run all night."
+  (2) at least one observable anomaly — a physical detail that is WRONG or SURPRISING —
+      that the detective can see but cannot yet explain without subject knowledge.
+      Only use values or substances present in topic_research or material.
+  (3) NO concept name, NO subject label, NO topic announcement.
+      FORBIDDEN: "Das zentrale Thema ist der Wasserkreislauf."
+      FORBIDDEN: "We must investigate photosynthesis."
+      FORBIDDEN: "This case is about cell division."
+      The student discovers the subject by investigating — it is never announced.
+If (3) is violated: rewrite to remove any mention of the subject area entirely.
 
 CHECK 5 — CHARACTER INTEGRITY
 For each entry in the "characters" array:
@@ -252,15 +261,44 @@ CLUES ARE FACTS ENCODED AS OBJECTS.
 A clue is never "the answer." It is a physical object, a scrap of writing, an overheard phrase, or an
 anomaly in the scene that the detective must interpret using topic knowledge.
 
-MOVES ARE STORY BEATS, NOT QUIZ QUESTIONS.
-content MUST be narration or NPC dialogue. Never: "What were the main causes of X?"
-Always: vivid scene description or NPC dialogue with a real fact embedded.
+MOVES ARE STORY BEATS — THE CONCEPT IS ALWAYS HIDDEN INSIDE A CLUE.
+content MUST be narration or NPC dialogue. NEVER state a concept directly.
+FORBIDDEN in content: naming the concept being tested, providing explanations, asking quiz questions.
+REQUIRED in content: a sensory, observable anomaly the detective CAN SEE but must INTERPRET.
 
-EVERY MOVE CONTENT MUST INCLUDE AT LEAST ONE EXPLICIT, NAMED DETAIL THE PLAYER CAN ACT ON.
-Only use details that appear in topic_research or material.
-If no specific detail is available: use a general-but-accurate descriptor.
-"Something felt off" is useless. "The log shows a temperature drop at 03:15" is a clue —
-but only write "03:15" if that timestamp appears in your source material.
+A clue is a broken device, a strange reading, a contradictory statement, a suspicious log entry —
+something that can only be understood correctly by a student who knows the concept.
+The student names the mechanism. The content shows the evidence.
+
+MOVE CONTENT EXAMPLES:
+
+  Topic concept to test: "Mitosis produces two identical daughter cells"
+  FORBIDDEN: "The tissue sample shows signs of mitotic division. What does that mean?"
+  FORBIDDEN: "The scientist left a note: 'cell division is abnormal.'"
+  RIGHT:     "Under the microscope, every cell in the sample shows identical DNA
+              markers to the host — none show the halved chromosome counts
+              typical of reproductive cells."
+  What the student must deduce: that this is mitosis, not meiosis — ruling out gamete production.
+
+  Topic concept to test: "Evaporation requires energy — it cools the surface it leaves"
+  FORBIDDEN: "There is moisture on the walls. Explain the water cycle."
+  FORBIDDEN: "Herr Schmidt says: 'Wasser verdunstet. Was bedeutet das für den Kreislauf?'"
+  RIGHT:     "The sealed chamber where the body was found registers 4°C below the ambient
+              temperature outside — yet no cooling system was running that night. The floor
+              drain shows a thin mineral residue ring, as if a large puddle had been present
+              and disappeared."
+  What the student must deduce: large-scale evaporation occurred, which would have required
+  a heat source — the 4°C drop is the evaporative cooling effect, not mechanical refrigeration.
+
+  Topic concept to test: "Condensation deposits water when air hits a cold surface"
+  FORBIDDEN: "The window shows condensation. What process caused this?"
+  RIGHT:     "The outside of the cold storage pipe is coated in a thick water film — on
+              the inside of the building, not the outside. The pipe carries chilled brine,
+              not water. The water came from somewhere else."
+  What the student must deduce: warm humid room air condensed on the cold pipe surface —
+  this tells us the room was much warmer and more humid before the body was discovered.
+
+Every named measurement, substance, or value in content must come from topic_research or material.
 
 DIFFICULTY CONTROLS THE ACADEMIC DEMAND — NOT THE STORY.
 - 0.0–0.3 (Gentle): Basic vocabulary and single-concept answers suffice. Partial answers advance the story.
@@ -319,4 +357,68 @@ general-but-true description (see CHECK 1).
 
 LANGUAGE: if immersive is true, ALL content must be in the session language.
 
-ESTIMATED TURNS: 15 min → 12, 30 min → 25, 60 min → 50, open-ended → 80
+ESTIMATED TURNS: Use task_list.task_count as the basis (it already includes buffer tasks). Fallback: 15 min → 12, 30 min → 25, 60 min → 50, open-ended → 80.
+
+TASK LIST INTEGRATION — THE CRIME IS BUILT FROM THE TASKS.
+The crime does not exist first. The tasks exist first. The crime is the tasks, re-expressed as a mystery.
+
+PRE-WORK (do this before writing any JSON):
+For each task in task_list.tasks, assign it exactly ONE of these crime roles:
+  WEAPON     — this task's concept IS the murder weapon or sabotage mechanism.
+               Solving the task = understanding how the crime was physically committed.
+  ALIBI      — a suspect's alibi can only be confirmed or broken by knowing this concept.
+               Solving the task = revealing whether the suspect could or could not have done it.
+  MOTIVE     — the reason a character acted REQUIRES understanding this concept.
+               Solving the task = understanding why someone would commit this crime at all.
+  EVIDENCE   — a physical clue at the scene can only be correctly interpreted using this concept.
+               Solving the task = naming what the clue means and what it proves.
+  COVER-UP   — a falsified document, wrong measurement, or deliberate lie requires this concept
+               to detect the error. is_buffer=false tasks of this type become is_error_trap:true moves.
+
+Then build the crime plot from these roles:
+  - The WEAPON tasks define the mechanics of the crime (HOW).
+  - The MOTIVE tasks define the psychology of the culprit (WHY).
+  - The ALIBI tasks define who had the opportunity (WHO).
+  - The EVIDENCE tasks define what the scene left behind (WHAT).
+  - The COVER-UP tasks define what the culprit tried to hide (THE LIE).
+  - The closing move requires the student to name: HOW + WHY + WHO + WHAT, in character.
+
+MOVE CONSTRUCTION RULES:
+Each task maps to one primary move:
+  - move.content: an observable scene detail that ENCODES the concept — do NOT state the concept.
+    The detective sees an anomaly; understanding it requires the student's knowledge.
+    Example: if the concept is "infrared light cannot drive Photosystem II":
+      WRONG content: "The lab note reads: infrared light stops photosynthesis."
+      RIGHT content:  "The plant monitor shows the 680 nm absorption channel dead-flat since
+                       03:15 AM — exactly when the building switched to the infrared security lamps."
+    The content does NOT name the concept. The student must name it.
+  - move.expected_student_response: what the student must DEDUCE, not recall.
+    It should sound like detective reasoning: "The infrared shift cut Photosystem II —
+    the plant couldn't produce ATP, which explains why the biosensor flatlined."
+  - if_incorrect → the is_buffer task for the same concept:
+    Re-approach the same fact from a simpler angle (different character, simpler clue).
+  - if_correct → the next task in causal story order.
+
+THE CRIME MUST BE PHYSICALLY CAUSED BY THE TOPIC.
+Before assigning crime roles, answer this question: "How does understanding [topic] change
+who could have committed this crime, when, or how?"
+If understanding the topic doesn't change the answer — redesign the crime.
+
+EXAMPLES OF TOPIC-CAUSAL CRIMES:
+  Water cycle: The victim was poisoned by deliberately induced hypothermia — the murderer
+    flooded and then drained a sealed room, using evaporative cooling to drop the temperature
+    below survival threshold. Only someone who understands latent heat of evaporation could
+    have calculated the timing. The flood left no trace; only a mineral residue ring remains.
+  Photosynthesis: A rare plant died, destroying the alibi of the suspect who claimed to
+    have kept it alive in a dark storage room. Understanding photosynthesis proves the plant
+    could not have survived — the alibi collapses.
+  French Revolution: The forged decree uses terminology that only appeared after 1791 —
+    a student who knows the timeline can date the forgery to after the suspect claimed to
+    have left Paris.
+
+THE CRIME CANNOT BE SOLVED WITHOUT ALL CORE TASKS.
+The closing move must require the student to name the culprit AND explain the mechanism.
+They can only do this if they have correctly processed the WEAPON + ALIBI + MOTIVE tasks.
+If any core task is unsolved, the closing move should be unreachable or fail gracefully.
+
+Do not invent new exam concepts. Every knowledge point tested must come from task_list.tasks.
