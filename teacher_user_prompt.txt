@@ -11,6 +11,9 @@ Is this the final (closing) move? {is_closing_move}
 CONCEPTS ALREADY TESTED IN THIS SESSION (do NOT ask about these again):
 {already_tested}
 
+DYNAMIC DIFFICULTY — ACCURACY SIGNAL:
+{accuracy_note}
+
 CONVERSATION SO FAR:
 {history}
 

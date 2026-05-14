@@ -52,6 +52,108 @@ window.MindHeist = { setMood, getMoods: () => Object.keys(MOOD_CONFIG.moods) };
 setMood(MOOD_CONFIG.active || "neutral");
 
 /* ============================================================
+   MUSIC ENGINE
+   Phase-driven procedural ambient piano using Web Audio API.
+   Classroom-safe: max master gain 0.08, default muted, starts
+   only after first user gesture (Web Audio autoplay policy).
+============================================================ */
+const MusicEngine = (() => {
+  // Per-phase: tempo (bpm), pentatonic scale (Hz), rhythmic step, note envelope volume
+  const PHASES = [
+    { bpm: 50,  notes: [220.0, 261.6, 293.7, 349.2, 392.0], step: 5, vol: 0.065 }, // Setup — sparse, calm
+    { bpm: 63,  notes: [233.1, 277.2, 329.6, 369.9, 440.0], step: 4, vol: 0.075 }, // Investigation — steady
+    { bpm: 75,  notes: [246.9, 311.1, 370.0, 415.3, 493.9], step: 3, vol: 0.080 }, // Complication — rising
+    { bpm: 88,  notes: [261.6, 329.6, 392.0, 440.0, 523.3], step: 3, vol: 0.085 }, // Breakthrough — urgent
+    { bpm: 100, notes: [277.2, 329.6, 415.3, 466.2, 554.4], step: 2, vol: 0.090 }, // Confrontation — dense
+  ];
+  const MAX_GAIN = 0.08; // classroom-safe ceiling applied at master bus
+
+  let ctx = null, master = null, reverb = null;
+  let ticker = null, nextBeat = 0, beat = 0;
+  let phase = 0, muted = true, started = false;
+
+  function buildReverb(c) {
+    const frames = c.sampleRate * 1.8;
+    const buf = c.createBuffer(2, frames, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < frames; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / frames, 2.5);
+    }
+    const node = c.createConvolver();
+    node.buffer = buf;
+    return node;
+  }
+
+  function tone(freq, time) {
+    const cfg = PHASES[phase];
+    const dur  = (60 / cfg.bpm) * 3.0;
+    const osc  = ctx.createOscillator();
+    const env  = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    env.gain.setValueAtTime(0, time);
+    env.gain.linearRampToValueAtTime(cfg.vol, time + 0.009);
+    env.gain.exponentialRampToValueAtTime(cfg.vol * 0.20, time + 0.20);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(env);
+    env.connect(reverb);
+    osc.start(time);
+    osc.stop(time + dur + 0.05);
+  }
+
+  function tick() {
+    const cfg     = PHASES[phase];
+    const beatSec = 60 / cfg.bpm;
+    while (nextBeat < ctx.currentTime + 0.20) {
+      const idx = beat % cfg.notes.length;
+      if (beat % cfg.step === 0) {
+        tone(cfg.notes[idx], nextBeat);
+        // Chord colour on every 4th structural beat
+        if (beat % (cfg.step * 4) === 0) {
+          const cidx = (idx + 2) % cfg.notes.length;
+          tone(cfg.notes[cidx], nextBeat + 0.018);
+        }
+      }
+      nextBeat += beatSec;
+      beat++;
+    }
+  }
+
+  function setup() {
+    ctx    = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = 0;
+    reverb = buildReverb(ctx);
+    reverb.connect(master);
+    master.connect(ctx.destination);
+  }
+
+  return {
+    start() {
+      if (!started) {
+        started  = true;
+        setup();
+        nextBeat = ctx.currentTime + 0.3;
+        ticker   = setInterval(tick, 50);
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      if (!muted) master.gain.setTargetAtTime(MAX_GAIN, ctx.currentTime, 0.8);
+    },
+    setPhase(idx) {
+      const next = Math.max(0, Math.min(idx, PHASES.length - 1));
+      if (next !== phase) { phase = next; beat = 0; }
+    },
+    toggleMute() {
+      muted = !muted;
+      if (master) master.gain.setTargetAtTime(muted ? 0 : MAX_GAIN, ctx.currentTime, 0.6);
+      return muted;
+    },
+    isMuted() { return muted; },
+  };
+})();
+
+/* ============================================================
    SESSION LOAD
 ============================================================ */
 const _raw = sessionStorage.getItem("mindheist_blueprint");
@@ -458,7 +560,13 @@ async function handleCommand(text, feedTarget, scrollTarget) {
       const d = await res.json();
       const m = d.current_move;
       if (!m) { dbg("Answer", ["No active move"]); return; }
-      dbg("Expected Answer", [`move: ${m.id}`, "", m.expected_student_response]);
+      dbg("Expected Answer", [
+        `move: ${m.id}`,
+        m.source_ref   ? `source: ${m.source_ref}` : "",
+        m.is_error_trap ? `⚠ error trap — correct value: ${m.error_correction_key || "?"}` : "",
+        "",
+        m.expected_student_response,
+      ].filter(Boolean));
     } catch (e) { dbg("Error", [e.message]); }
     return;
   }
@@ -578,6 +686,7 @@ async function sendMessage() {
     return;
   }
 
+  MusicEngine.start();
   addUserMessage(text, feedEl);
   const historySnapshot = history.slice();
   history.push({ role: "user", content: text });
@@ -658,6 +767,7 @@ async function sendMessage() {
           if (typeof data.phase_index === "number" && data.phase_index !== currentPhaseIndex) {
             currentPhaseIndex = data.phase_index;
             updateActiveScene(currentPhaseIndex);
+            MusicEngine.setPhase(currentPhaseIndex);
             const phase = blueprint.phases[currentPhaseIndex];
             if (phase) {
               addDayMarker(
@@ -767,6 +877,14 @@ function closeSession(closingLine) {
   returnBtn.textContent = "Return to library";
   bar.appendChild(returnBtn);
 }
+
+/* ---- music button ---- */
+const musicBtn = document.getElementById("music-btn");
+musicBtn.addEventListener("click", () => {
+  MusicEngine.start(); // creates AudioContext on first click (satisfies autoplay policy)
+  const nowMuted = MusicEngine.toggleMute();
+  musicBtn.classList.toggle("muted", nowMuted);
+});
 
 /* ---- end session button ---- */
 document.getElementById("end-btn").addEventListener("click", () => {

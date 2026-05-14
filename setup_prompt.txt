@@ -100,7 +100,10 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
       "expected_student_response": string,
       "if_correct": "move_slug",
       "if_incorrect": "move_slug",
-      "hint": string | null
+      "hint": string | null,
+      "source_ref": string | null,
+      "is_error_trap": boolean,
+      "error_correction_key": string | null
     }
   ],
 
@@ -201,6 +204,34 @@ For each entry in the "characters" array:
   (e) All NPC names appearing in planned_moves content must have a corresponding entry in "characters".
       No anonymous or unnamed NPCs.
 
+CHECK 6 — CAUSAL CHAIN INTEGRITY
+For every consecutive pair of moves (move_N → move_N+1 via if_correct):
+  Read move_N's content. Identify the fact or mechanism it exposes.
+  Read move_N+1's expected_student_response. Ask: could the student answer this
+  correctly without having read move_N's content?
+    YES → rewrite move_N+1's expected_student_response so it requires knowledge
+          exposed in move_N as a prerequisite. If needed, add a detail to move_N's
+          content that only makes sense once you understand the subject.
+    NO  → the chain is valid. Continue.
+No expected_student_response should be answerable from general knowledge alone —
+every answer must be causally unlocked by the specific content of the preceding move.
+
+CHECK 7 — ERROR TRAP MINIMUM
+Count all moves where is_error_trap is true.
+The blueprint MUST contain AT LEAST ONE such move (preferably in the Investigation phase).
+For each is_error_trap move, verify ALL of the following:
+  (a) content embeds a specific, named wrong fact: a date off by a decade, a value
+      transposed, a term subtly misused in a document or NPC statement.
+  (b) The error is plausibly close to the truth — subtle, not obvious.
+  (c) expected_student_response states TWO things: (1) identify the error, (2) state
+      the correct fact.
+  (d) hint contains the correction key — the fact from topic_research or material
+      that makes the correction possible.
+  (e) error_correction_key contains the correct value (concise, e.g. "2010" or
+      "Mitose, nicht Meiose").
+  (f) source_ref names the curriculum passage that establishes the correct value.
+If no error trap move exists: add one before finalising the JSON.
+
 
 ═══════════════════════════════════════════════════
 CASE DESIGN RULES — READ CAREFULLY
@@ -254,6 +285,37 @@ Do not use facts you cannot trace to topic_research or material.
 
 USE THE SCHOOL AND GRADE CONTEXT.
 Calibrate expected_student_response to school_type and grade.
+
+NO REAL PERSONS OR REAL PLACES.
+All named individuals must be fictional. All locations (cities, clinics, labs, schools) must be
+fictional with plausible names: "Klinik Rosenfeld", "Gymnasium Altenstein", "Dr. Marta Seibl".
+EXCEPTION: explicitly historical topics where the curriculum requires reference to historical
+figures or events — in that case use only figures and places from topic_research or material,
+and only where they are directly relevant to the learning goal.
+
+EMBED AT LEAST ONE ERROR TRAP.
+One move — typically in the Investigation phase — must contain a deliberately wrong fact
+embedded in a document, log, or NPC statement (e.g. a date off by a decade, a transposed
+measurement, a term subtly misused). The student must identify the error and state the correct
+fact using their subject knowledge. Mark the move with is_error_trap: true, fill
+error_correction_key with the correct value, and fill hint with the curriculum context that
+makes correction possible. The error must be specific and correctable from topic_research or
+material — never from general knowledge alone.
+
+CAUSAL PREREQUISITE CHAIN.
+Each move's expected_student_response must be unreachable without having engaged with the
+prior move's content. Facts must unlock the next step causally, not merely thematically.
+A fact the student could state without reading the preceding scene is a quiz question, not a
+clue. Redesign it: the prior scene must expose a specific detail that is the prerequisite
+for the next answer. Verify this against CHECK 6 before outputting.
+
+SOURCE REFERENCES ARE MANDATORY.
+Every planned_move must have source_ref set to the curriculum passage, textbook section,
+or legal article that authorises the expected_student_response. Format:
+  "Biologie Kl.9: Zellteilung §3.1"  /  "§ 127 BGB"  /  "Chemie Kl.10: Redoxreaktionen"
+This field is never shown to the student. It is used only for factual validation.
+If you cannot cite a source from topic_research or material: replace the fact with a
+general-but-true description (see CHECK 1).
 
 LANGUAGE: if immersive is true, ALL content must be in the session language.
 

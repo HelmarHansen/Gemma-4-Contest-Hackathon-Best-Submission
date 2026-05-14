@@ -87,6 +87,9 @@ class Move:
     if_correct:                str = ""
     if_incorrect:              str = ""
     hint:                      str | None = None
+    source_ref:                str | None = None  # curriculum reference — never shown to student
+    is_error_trap:             bool       = False  # move deliberately embeds a wrong fact
+    error_correction_key:      str | None = None  # correct value for an error trap move
 
 @dataclass
 class Contingencies:
@@ -294,6 +297,7 @@ def _build_teacher_prompts(
     current_move:     "Move | None",
     history:          list["ChatMessage"] | None = None,
     visited_move_ids: list[str] | None = None,
+    accuracy_ratio:   float = 0.5,
 ) -> tuple[str, str]:
     """Returns (system_prompt, user_message) for the teacher agent."""
     system_template = _load_prompt("teacher_system_prompt.txt")
@@ -330,6 +334,28 @@ def _build_teacher_prompts(
             already_tested_lines.append(f"- [{m.id}] {m.expected_student_response}")
     already_tested = "\n".join(already_tested_lines) if already_tested_lines else "(none yet)"
 
+    n = len(visited_move_ids or [])
+    if n >= 3:
+        if accuracy_ratio >= 0.80:
+            accuracy_note = (
+                f"HIGH accuracy ({accuracy_ratio:.0%}, {n} moves tested). "
+                "Student answers are consistently correct — increase demand: require sub-processes, "
+                "edge cases, or precise fine distinctions. Do not simplify or over-scaffold."
+            )
+        elif accuracy_ratio <= 0.25:
+            accuracy_note = (
+                f"LOW accuracy ({accuracy_ratio:.0%}, {n} moves tested). "
+                "Student is struggling — embed a stronger environmental hint in [NARRATION]. "
+                "In [NPC:Name] dialogue, explicitly name both the student's wrong term and the "
+                "correct term, with one clause stating how they differ."
+            )
+        else:
+            accuracy_note = (
+                f"BALANCED ({accuracy_ratio:.0%}, {n} moves tested). Maintain current complexity."
+            )
+    else:
+        accuracy_note = "Too early to calibrate (fewer than 3 moves tested). Maintain baseline complexity from the case file."
+
     user_template = _load_prompt("teacher_user_prompt.txt")
     user_message = user_template.format(
         blueprint_json=blueprint_json,
@@ -339,6 +365,7 @@ def _build_teacher_prompts(
         is_closing_move="YES — this is the final move. Use CLOSE if the student answers correctly."
                         if is_closing_move else "NO",
         already_tested=already_tested,
+        accuracy_note=accuracy_note,
     )
     return system_prompt, user_message
 
@@ -348,10 +375,11 @@ def run_teacher_agent(
     current_move:     "Move | None",
     history:          list["ChatMessage"] | None = None,
     visited_move_ids: list[str] | None = None,
+    accuracy_ratio:   float = 0.5,
 ) -> tuple[str, str]:
     """Returns (clean_reply_without_STATE, state_signal)."""
     system_prompt, user_message = _build_teacher_prompts(
-        blueprint, user_prompt, current_move, history, visited_move_ids,
+        blueprint, user_prompt, current_move, history, visited_move_ids, accuracy_ratio,
     )
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
 
@@ -559,11 +587,13 @@ def chat(req: ChatRequest):
 
     current_move = blueprint.get_move(state["current_move_id"])
     is_hint = req.message.startswith("[SYSTEM:")
+    accuracy_ratio = state.get("correct_count", 0) / max(state.get("turn_count", 1), 1)
 
     try:
         reply, signal = run_teacher_agent(
             blueprint, req.message, current_move, req.history,
             visited_move_ids=state.get("visited_move_ids", []),
+            accuracy_ratio=accuracy_ratio,
         )
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
@@ -607,10 +637,12 @@ def chat_stream(req: ChatRequest):
 
     current_move = blueprint.get_move(state["current_move_id"])
     is_hint = req.message.startswith("[SYSTEM:")
+    accuracy_ratio = state.get("correct_count", 0) / max(state.get("turn_count", 1), 1)
 
     system_prompt, user_message = _build_teacher_prompts(
         blueprint, req.message, current_move, req.history,
         visited_move_ids=state.get("visited_move_ids", []),
+        accuracy_ratio=accuracy_ratio,
     )
 
     def event_gen():
@@ -646,6 +678,7 @@ def chat_stream(req: ChatRequest):
             "phase_index":            phase_index,
             "closed":                 state["closed"],
             "appeared_character_ids": state.get("appeared_character_ids", []),
+            "accuracy_ratio":         state.get("correct_count", 0) / max(state.get("turn_count", 1), 1),
         }
         if state["closed"]:
             done_data["closing_line"] = _closing_line(blueprint, state)

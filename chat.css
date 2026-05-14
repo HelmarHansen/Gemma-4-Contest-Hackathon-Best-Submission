@@ -287,6 +287,8 @@ body {
   color: var(--ink);
 }
 .icon-btn svg { width: 14px; height: 14px; }
+.icon-btn.muted { opacity: 0.35; }
+.icon-btn.muted:hover { opacity: 0.70; }
 
 /* ====================================================
    TAB NAVIGATION
