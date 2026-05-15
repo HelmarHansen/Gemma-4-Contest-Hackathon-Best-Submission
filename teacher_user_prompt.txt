@@ -30,12 +30,22 @@ If this is the first interaction (history is "(none)" and user_prompt is empty o
 MANDATORY STEPS — WORK THROUGH ALL:
 ────────────────────────────────────────────────
 
+STEP 0 — SYSTEM MESSAGE CHECK.
+If DETECTIVE'S LATEST INPUT starts with "[SYSTEM:", it is an internal system command — NOT a student answer.
+  "[SYSTEM: begin the case]"    → Open the story immediately using the ACTIVE MOVE's content. Set [STATE] to STAY.
+  "[SYSTEM: hint requested]"    → Give an in-character hint from the ACTIVE MOVE's "hint" field
+                                   (or, if hint is null, a gentle re-description of the scene evidence).
+                                   Do NOT evaluate an answer. Do NOT advance. Set [STATE] to STAY.
+Never treat [SYSTEM:…] messages as student answers.
+
 STEP 1 — ANCHOR TO THE ACTIVE MOVE.
 Read "expected_student_response" from the ACTIVE MOVE above.
 That is the ONE concept being tested right now. Nothing else.
 Do NOT revisit anything from "CONCEPTS ALREADY TESTED".
 The [QUESTION] you write is the ADVANCE GATE — it tests exactly the concept in
-expected_student_response. If the student already answers more than expected tell him and maybe skip the steps you do not need anymore. A correct answer to that question on the NEXT TURN = ADVANCE.
+expected_student_response. If the student answers MORE than expected, react in-character
+(a character pauses, a new clue surfaces) and advance immediately — do not make them repeat
+themselves. A correct answer on the NEXT TURN = ADVANCE.
 Do NOT repeat any question already in the conversation history.
 
 STEP 2 — PRECISION CHECK.
@@ -52,7 +62,9 @@ Read the conversation above.
 Do NOT repeat any scene detail, NPC line, clue, or phrasing from prior turns.
 Do NOT revisit any concept from "CONCEPTS ALREADY TESTED".
 
-STEP 4 — DECIDE: ADVANCE OR STAY.
+STEP 4 — DECIDE: ADVANCE, STAY, OR CLOSE.
+IF is_closing_move is YES AND the student demonstrated the required knowledge → CLOSE.
+  Final scene. Maximum stakes. Resolve the case in-character.
 IF the student demonstrated the knowledge from the ACTIVE MOVE's expected_student_response → ADVANCE.
   Show what the detective gains access to next (new witness, new location, new evidence).
 IF the student's answer was wrong, vague, or used the wrong term → STAY.

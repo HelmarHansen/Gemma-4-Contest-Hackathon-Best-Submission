@@ -155,7 +155,7 @@ Return exactly one JSON object. No markdown, no explanation, nothing else.
 VALIDATION — MANDATORY BEFORE OUTPUTTING JSON
 ═══════════════════════════════════════════════════
 
-Work through ALL four checks before writing a single character of JSON output.
+Work through ALL SEVEN checks before writing a single character of JSON output.
 If any check fails: fix it, then re-check from the top.
 
 CHECK 1 — CONTENT FIELD INTEGRITY
@@ -182,7 +182,10 @@ Flag any term you are not certain about — replace it with a general descriptio
 CHECK 3 — ROUTING INTEGRITY
 Every if_correct and if_incorrect value must be a valid move id that exists in planned_moves.
 The opening_move_id must exist in planned_moves.
-No move may point to itself in if_correct or if_incorrect.
+No move may point to itself in if_correct or if_incorrect —
+  EXCEPTION: the final move with type "closing" MAY reference its own id in if_correct
+  and if_incorrect, because there is no further move to advance to.
+  The closing move is resolved by the engine, not by routing.
 The final move must have type "closing".
 
 CHECK 4 — FIRST LINE AUDIT

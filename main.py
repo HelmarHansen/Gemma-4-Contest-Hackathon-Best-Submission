@@ -183,7 +183,7 @@ class SessionBlueprint:
         json_str = match.group()
         json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", json_str)
         # Escape unescaped backslashes in strings
-        json_str = re.sub(r'\\(?![\\"/bfnrt])', r'\\\\', json_str)
+        json_str = re.sub(r'\\(?![\\"/bfnrtu])', r'\\\\', json_str)
         json_str = re.sub(
             r'"((?:[^"\\]|\\.)*)"',
             lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
@@ -798,10 +798,11 @@ def chat(req: ChatRequest):
     phase_index = _phase_index_for_move(blueprint, state["current_move_id"])
 
     response: dict = {
-        "reply":                  reply,
-        "phase_index":            phase_index,
-        "mood":                   _mood_for(blueprint.session.mode, phase_index),
-        "closed":                 state["closed"],
+        "reply":          reply,
+        "phase_index":    phase_index,
+        "mood":           _mood_for(blueprint.session.mode, phase_index),
+        "closed":         state["closed"],
+        "accuracy_ratio": state.get("correct_count", 0) / max(state.get("turn_count", 1), 1),
     }
     if state["closed"]:
         response["closing_line"] = _closing_line(blueprint, state)

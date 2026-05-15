@@ -198,7 +198,10 @@ Work through this silently before writing a single word:
       If wrong: [NPC:Name] dialogue MUST name BOTH the wrong term and the correct term
       and state in one clause how they differ.
 
-  Q3. Does the final sentence of [NARRATION] contain the exact concept name?
+  Q3. Does [NARRATION] contain at least one SPECIFIC, NAMED clue that ENCODES the concept
+      without naming it? (A reading, a measurement, a quoted phrase, an observable anomaly.)
+      NOT: "The deposition process is visible here."  ← names the concept — forbidden.
+      YES: "A dry, crystalline crust lines the inside of the pipe."  ← encodes the concept.
 
   Q4. Does at least one [NPC:…] block use the exact concept name?
 
