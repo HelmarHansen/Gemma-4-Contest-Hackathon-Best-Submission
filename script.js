@@ -49,16 +49,21 @@ function updateCount(ta) {
 
 // ── File uploads ─────────────────────────────────────────────────
 let materialText = '';
-let materialImages = [];  // base64-encoded images (without data: prefix)
+let materialImages = [];     // base64 images for vision
+let materialDocuments = [];  // [{name, data:base64}] for server-side extraction
 const fileInput = document.getElementById('file-input');
 const fileListEl = document.getElementById('file-list');
+
+const DOC_EXTS = ['pdf', 'docx', 'pptx', 'xlsx'];
+const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+const TEXT_EXTS = ['txt', 'md', 'csv'];
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      // Strip "data:image/jpeg;base64," prefix — Ollama wants raw base64
+      // Strip "data:.../...;base64," prefix — backend wants raw base64
       const comma = result.indexOf(',');
       resolve(comma >= 0 ? result.slice(comma + 1) : result);
     };
@@ -73,30 +78,39 @@ if (fileInput && fileListEl) {
     fileListEl.innerHTML = '';
     const chunks = [];
     const images = [];
+    const documents = [];
     for (const file of files) {
       const ext = file.name.split('.').pop().toLowerCase();
-      const isImage = file.type.startsWith('image/') ||
-                      ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
-      const canRead = ['txt', 'md', 'csv'].includes(ext) || file.type.startsWith('text/');
+      const isImage = file.type.startsWith('image/') || IMAGE_EXTS.includes(ext);
+      const isDoc   = DOC_EXTS.includes(ext);
+      const isText  = TEXT_EXTS.includes(ext) || file.type.startsWith('text/');
+
       const item = document.createElement('div');
       item.className = 'file-item';
-      const label = isImage ? 'vision' : canRead ? 'included' : 'name only';
+      const label = isImage ? 'vision'
+                  : isDoc   ? 'extracted'
+                  : isText  ? 'included'
+                  : 'name only';
       item.innerHTML = `<span>${file.name}</span><small>${label}</small>`;
       fileListEl.appendChild(item);
-      if (isImage) {
-        try {
+
+      try {
+        if (isImage) {
           images.push(await fileToBase64(file));
-        } catch (e) {
-          console.error('Image encode failed:', file.name, e);
+        } else if (isDoc) {
+          documents.push({ name: file.name, data: await fileToBase64(file) });
+        } else if (isText) {
+          chunks.push(`--- ${file.name} ---\n${await file.text()}`);
+        } else {
+          chunks.push(`Uploaded file: ${file.name} (${file.type || 'unknown type'}).`);
         }
-      } else if (canRead) {
-        chunks.push(`--- ${file.name} ---\n${await file.text()}`);
-      } else {
-        chunks.push(`Uploaded file: ${file.name} (${file.type || 'unknown type'}).`);
+      } catch (e) {
+        console.error('Encode failed for', file.name, e);
       }
     }
     materialText = chunks.join('\n\n');
     materialImages = images;
+    materialDocuments = documents;
   });
 }
 
@@ -211,8 +225,9 @@ async function send() {
       school_type: document.getElementById('lesson-school-type').value,
       grade:       document.getElementById('lesson-grade').value,
     },
-    material: materialText,
-    images:   materialImages,
+    material:  materialText,
+    images:    materialImages,
+    documents: materialDocuments,
   };
 
   try {

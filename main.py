@@ -1,5 +1,7 @@
 import json
 import re
+import base64
+import io
 import dataclasses
 import requests
 from dataclasses import dataclass, field, asdict
@@ -235,11 +237,16 @@ class LessonInput(BaseModel):
     school_type: str = ""
     grade:       str = ""
 
+class DocumentInput(BaseModel):
+    name: str
+    data: str  # base64-encoded file bytes
+
 class WorkRequest(BaseModel):
-    teacher:  TeacherInput
-    lesson:   LessonInput
-    material: str = ""
-    images:   list[str] = []  # base64-encoded image data (jpeg/png/webp)
+    teacher:   TeacherInput
+    lesson:    LessonInput
+    material:  str = ""
+    images:    list[str] = []           # base64 images for vision
+    documents: list[DocumentInput] = [] # pdf/docx/pptx/xlsx for server-side extraction
 
 class ChatMessage(BaseModel):
     role:    str
@@ -300,6 +307,105 @@ def ask_ollama_stream(system_prompt: str, user_message: str,
 def _load_prompt(filename: str) -> str:
     with open(filename, "r", encoding="utf-8") as f:
         return f.read()
+
+# ── Document extraction ──────────────────────────────────────────
+
+_MAX_PDF_PAGES   = 8       # cap to keep vision payloads reasonable
+_PDF_RENDER_DPI  = 110     # readable but not huge
+_MAX_DOC_CHARS   = 6000    # per-document text cap
+
+def _extract_pdf(raw: bytes) -> tuple[str, list[str]]:
+    """Render PDF pages to PNG (base64) + extract embedded text. Returns (text, images_b64)."""
+    import fitz  # pymupdf
+    text_chunks: list[str] = []
+    images_b64: list[str]  = []
+    with fitz.open(stream=raw, filetype="pdf") as doc:
+        n_pages = min(doc.page_count, _MAX_PDF_PAGES)
+        for i in range(n_pages):
+            page = doc.load_page(i)
+            t = str(page.get_text("text") or "")
+            if t.strip():
+                text_chunks.append(t.strip())
+            pix = page.get_pixmap(dpi=_PDF_RENDER_DPI)
+            images_b64.append(base64.b64encode(pix.tobytes("png")).decode("ascii"))
+    return ("\n\n".join(text_chunks)[:_MAX_DOC_CHARS], images_b64)
+
+def _extract_docx(raw: bytes) -> str:
+    import docx
+    d = docx.Document(io.BytesIO(raw))
+    lines = [p.text for p in d.paragraphs if p.text.strip()]
+    for tbl in d.tables:
+        for row in tbl.rows:
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if cells:
+                lines.append(" | ".join(cells))
+    return "\n".join(lines)[:_MAX_DOC_CHARS]
+
+def _extract_pptx(raw: bytes) -> str:
+    from pptx import Presentation
+    prs = Presentation(io.BytesIO(raw))
+    lines: list[str] = []
+    for i, slide in enumerate(prs.slides, 1):
+        lines.append(f"--- Slide {i} ---")
+        for shape in slide.shapes:
+            text = str(getattr(shape, "text", "") or "").strip()
+            if text:
+                lines.append(text)
+        if slide.has_notes_slide:
+            notes_frame = getattr(slide.notes_slide, "notes_text_frame", None)
+            note = str(getattr(notes_frame, "text", "") or "").strip()
+            if note:
+                lines.append(f"[Notes] {note}")
+    return "\n".join(lines)[:_MAX_DOC_CHARS]
+
+def _extract_xlsx(raw: bytes) -> str:
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True, read_only=True)
+    lines: list[str] = []
+    for sheet in wb.worksheets:
+        lines.append(f"--- Sheet: {sheet.title} ---")
+        for row in sheet.iter_rows(values_only=True):
+            cells = [str(c) for c in row if c is not None and str(c).strip()]
+            if cells:
+                lines.append(" | ".join(cells))
+            if len("\n".join(lines)) > _MAX_DOC_CHARS:
+                break
+    return "\n".join(lines)[:_MAX_DOC_CHARS]
+
+def process_documents(docs: list["DocumentInput"]) -> tuple[str, list[str]]:
+    """Dispatch by extension. Returns (extracted_text, extracted_images_b64)."""
+    text_parts: list[str] = []
+    images:     list[str] = []
+    for doc in docs:
+        try:
+            raw = base64.b64decode(doc.data)
+        except Exception as e:
+            print(f"Skip {doc.name}: base64 decode failed ({e})")
+            continue
+        ext = doc.name.rsplit(".", 1)[-1].lower() if "." in doc.name else ""
+        try:
+            if ext == "pdf":
+                txt, imgs = _extract_pdf(raw)
+                if txt:
+                    text_parts.append(f"--- {doc.name} ---\n{txt}")
+                images.extend(imgs)
+            elif ext == "docx":
+                txt = _extract_docx(raw)
+                if txt:
+                    text_parts.append(f"--- {doc.name} ---\n{txt}")
+            elif ext == "pptx":
+                txt = _extract_pptx(raw)
+                if txt:
+                    text_parts.append(f"--- {doc.name} ---\n{txt}")
+            elif ext == "xlsx":
+                txt = _extract_xlsx(raw)
+                if txt:
+                    text_parts.append(f"--- {doc.name} ---\n{txt}")
+            else:
+                print(f"Skip {doc.name}: unsupported extension '{ext}'")
+        except Exception as e:
+            print(f"Extraction failed for {doc.name}: {e}")
+    return ("\n\n".join(text_parts), images)
 
 # ── Prompt building ──────────────────────────────────────────────
 
@@ -441,10 +547,18 @@ def _parse_json_stage(raw: str, label: str) -> dict:
 
 def run_research_stage(req: "WorkRequest") -> dict:
     system_prompt = _load_prompt("research_prompt.txt")
+
+    # Extract text + page images from uploaded documents (pdf/docx/pptx/xlsx)
+    doc_text, doc_images = process_documents(req.documents) if req.documents else ("", [])
+    combined_material = "\n\n".join(p for p in [req.material, doc_text] if p)
+    combined_images   = list(req.images) + doc_images
+    print(f"Stage 1 inputs: material={len(combined_material)} chars, images={len(combined_images)}")
+
     image_note = ""
-    if req.images:
+    if combined_images:
         image_note = (
-            f"\n\nIMAGES: {len(req.images)} image(s) attached as study material. "
+            f"\n\nIMAGES: {len(combined_images)} image(s) attached as study material "
+            "(may include rendered document pages). "
             "Read every visible text, diagram label, formula, and annotation. "
             "Treat the image content as authoritative source material — use facts from the images "
             "in core_concepts, key_facts, and misconceptions."
@@ -455,11 +569,11 @@ def run_research_stage(req: "WorkRequest") -> dict:
         f"Grade: {req.lesson.grade or 'not specified'}\n"
         f"Investigation style: {req.lesson.mode}\n"
         f"Language: {req.lesson.language}\n"
-        f"Material:\n{req.material[:3000] if req.material else 'none'}"
+        f"Material:\n{combined_material[:8000] if combined_material else 'none'}"
         f"{image_note}"
     )
     raw = ask_ollama(system_prompt, user_message,
-                     options=_OPTS_RESEARCH, images=req.images or None)
+                     options=_OPTS_RESEARCH, images=combined_images or None)
     print(f"Stage 1 raw length: {len(raw)}")
     try:
         return _parse_json_stage(raw, "Stage 1 Research")
