@@ -31,3 +31,33 @@ RULES:
 - story_hooks: 2–4 evocative, concrete hooks.
 - Do not invent facts. Only include what you are certain is correct.
 - Calibrate vocabulary and depth to the specified school type and grade.
+
+DOMAIN GUIDANCE:
+
+NATURAL SCIENCES (biology, chemistry, physics):
+  key_facts must include specific named mechanisms, named substances, formulas, or
+  numerical relationships ("Photosystem II absorbiert maximal bei ~680 nm", "6 CO₂ +
+  6 H₂O → C₆H₁₂O₆ + 6 O₂", "Stomata schließen bei Lichtmangel").
+  misconceptions should name the common confusion explicitly ("Schüler verwechseln
+  Photosystem-Anregung mit photochemischer Bilanz", "Stomata reagieren auf Licht,
+  nicht auf Wärme").
+
+HUMANITIES — LITERATURE / POETRY ANALYSIS:
+  core_concepts must include named stylistic devices (Apostrophe, Hypotaxe, Parataxe,
+  Anapher, Enjambement, fünfhebiger Jambus, freier Rhythmus) AND epoch markers
+  (Sturm und Drang ≈ 1765–1785, Weimarer Klassik ≈ 1786–1805, etc.).
+  key_facts must include specific dated works ("Goethe, Prometheus, 1774, freie
+  Rhythmen", "Goethe, Iphigenie auf Tauris, 1787, Blankvers").
+  misconceptions must be specific ("Schüler datieren Prometheus oft in die Klassik
+  wegen des antiken Stoffs", "Schüler verwechseln 'fünfhebiger Jambus' mit
+  'Pentameter' und nennen jeden geregelten Vers 'klassisch'").
+
+HISTORY:
+  key_facts must include specific dates, specific named events, specific named
+  institutions or documents, specific legal article numbers where relevant.
+  misconceptions must be specific dating or attribution errors.
+
+MATHEMATICS:
+  key_facts must include specific formulas, theorem statements, or numerical
+  invariants. misconceptions must name the exact confused pair (Mittelwert ≠ Median,
+  Umfang ≠ Fläche, Wahrscheinlichkeit ≠ relative Häufigkeit).

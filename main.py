@@ -16,14 +16,21 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL      = "gemma4"
 
 # ── Ollama parameter presets ─────────────────────────────────────
-_OPTS_RESEARCH  = {"temperature": 0.15, "top_p": 0.85, "top_k": 30,
-                   "repeat_penalty": 1.05, "num_predict": 512}
-_OPTS_BLUEPRINT = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
-                   "repeat_penalty": 1.10, "num_predict": 6000}
-_OPTS_VALIDATE  = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
-                   "repeat_penalty": 1.00, "num_predict": 512}
-_OPTS_CHAT      = {"temperature": 0.30, "top_p": 0.88, "top_k": 45,
-                   "repeat_penalty": 1.20, "num_predict": 1500}
+# num_predict is sized so that the longer worked examples and the
+# 7-CHECK-validated blueprints from setup_prompt.txt cannot be truncated.
+# Lifted from 512/6000/512/1500 → 2048/12288/1536/2048.
+_OPTS_RESEARCH    = {"temperature": 0.15, "top_p": 0.85, "top_k": 30,
+                     "repeat_penalty": 1.05, "num_predict": 2048}
+_OPTS_TASK_DESIGN = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
+                     "repeat_penalty": 1.10, "num_predict": 8192}
+_OPTS_BLUEPRINT   = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
+                     "repeat_penalty": 1.10, "num_predict": 12288}
+_OPTS_VALIDATE    = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
+                     "repeat_penalty": 1.00, "num_predict": 1536}
+_OPTS_CHAT        = {"temperature": 0.30, "top_p": 0.88, "top_k": 45,
+                     "repeat_penalty": 1.20, "num_predict": 2048}
+_OPTS_INTERROGATE = {"temperature": 0.45, "top_p": 0.90, "top_k": 50,
+                     "repeat_penalty": 1.15, "num_predict": 768}
 
 # ── Mood mapping ─────────────────────────────────────────────────
 
@@ -256,6 +263,12 @@ class ChatRequest(BaseModel):
     session_id: str
     message:    str
     history:    list[ChatMessage] = []
+
+class InterrogationRequest(BaseModel):
+    session_id:   str
+    character_id: str
+    message:      str
+    history:      list[ChatMessage] = []
 
 # ── Ollama helpers ───────────────────────────────────────────────
 
@@ -588,16 +601,15 @@ def run_task_design_stage(req: "WorkRequest", research: dict) -> dict:
         "research": research,
         "lesson":   req.lesson.model_dump(),
     }, ensure_ascii=False)
-    raw = ask_ollama(system_prompt, user_message,
-                     options={**_OPTS_BLUEPRINT, "num_predict": 6000})
+    raw = ask_ollama(system_prompt, user_message, options=_OPTS_TASK_DESIGN)
     print(f"Stage 2 raw length: {len(raw)}")
     try:
         return _parse_json_stage(raw, "Stage 2 Tasks")
     except Exception as e:
         print(f"Stage 2 parse failed ({e}), retrying…")
-        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:8000]
+        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:10000]
         raw2 = ask_ollama("Output only valid JSON. No markdown, no text.", repair,
-                          options={**_OPTS_BLUEPRINT, "temperature": 0.05, "num_predict": 6000})
+                          options={**_OPTS_TASK_DESIGN, "temperature": 0.05})
         return _parse_json_stage(raw2, "Stage 2 Tasks (retry)")
 
 def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "SessionBlueprint":
@@ -609,7 +621,7 @@ def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "Session
         "topic_research": research,
         "task_list":      tasks,
     }, ensure_ascii=False)
-    raw = ask_ollama(system_prompt, user_message, options={**_OPTS_BLUEPRINT, "num_predict": 5000})
+    raw = ask_ollama(system_prompt, user_message, options=_OPTS_BLUEPRINT)
     print(f"Stage 3 raw length: {len(raw)}")
     try:
         return SessionBlueprint.from_llm_response(raw)
@@ -618,7 +630,7 @@ def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "Session
         repair_prompt = (
             "The following text contains a JSON object with syntax errors. "
             "Output only the corrected, complete, valid JSON — no explanation, no markdown:\n\n"
-            + raw[:12000]
+            + raw[:16000]
         )
         raw2 = ask_ollama("You are a JSON repair tool. Output only valid JSON.",
                           repair_prompt,
@@ -864,6 +876,82 @@ def chat_stream(req: ChatRequest):
         event_gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+# ── Interrogation ────────────────────────────────────────────────
+
+def _build_interrogation_prompt(
+    blueprint: "SessionBlueprint", character: "Character",
+) -> str:
+    template = _load_prompt("interrogation_system_prompt.txt")
+    return template.format(
+        character_name=character.name or "Unknown",
+        character_role=character.role or "—",
+        character_personality=character.personality or "—",
+        character_voice=character.voice or "—",
+        character_knowledge=character.knowledge or "(no specific knowledge recorded)",
+        character_secrets=character.secrets or "(none)",
+        character_ignorant_of=character.ignorant_of or "(none)",
+        language=blueprint.session.language or "English",
+    )
+
+def _format_interrogation_history(history: list["ChatMessage"]) -> str:
+    if not history:
+        return ""
+    parts: list[str] = []
+    for msg in history:
+        label = "DETECTIVE" if msg.role == "user" else "YOU"
+        parts.append(f"{label}: {msg.content}")
+    return "\n".join(parts)
+
+@app.get("/api/session/{session_id}/characters")
+def list_characters(session_id: str):
+    blueprint = _sessions.get(session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "characters": [
+            {
+                "id":          c.id or c.name,
+                "name":        c.name,
+                "role":        c.role,
+                "personality": c.personality,
+            }
+            for c in blueprint.characters
+            if (c.name or c.id)
+        ]
+    }
+
+@app.post("/api/interrogate")
+def interrogate(req: InterrogationRequest):
+    blueprint = _sessions.get(req.session_id)
+    if not blueprint:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Match by id first, then by name (case-insensitive) for resilience.
+    character = blueprint.get_character(req.character_id)
+    if not character:
+        for c in blueprint.characters:
+            if (c.name or "").strip().lower() == req.character_id.strip().lower():
+                character = c
+                break
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found in session")
+
+    system_prompt = _build_interrogation_prompt(blueprint, character)
+    history_text  = _format_interrogation_history(req.history)
+    user_message  = (
+        (f"PRIOR EXCHANGE:\n{history_text}\n\n" if history_text else "")
+        + f"DETECTIVE: {req.message}"
+    )
+
+    try:
+        reply = ask_ollama(system_prompt, user_message, options=_OPTS_INTERROGATE)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Ollama unreachable: {e}")
+
+    # Strip stray section markers (but keep the content that follows them).
+    reply = re.sub(r"\[(?:NARRATION|NPC:[^\]]+|QUESTION|STATE)\]\s*", "", reply).strip()
+    return {"reply": reply, "character": {"id": character.id, "name": character.name}}
 
 # ── Serve frontend ───────────────────────────────────────────────
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
