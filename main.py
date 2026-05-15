@@ -103,9 +103,9 @@ class Move:
     if_correct:                str = ""
     if_incorrect:              str = ""
     hint:                      str | None = None
-    source_ref:                str | None = None  # curriculum reference — never shown to student
-    is_error_trap:             bool       = False  # move deliberately embeds a wrong fact
-    error_correction_key:      str | None = None  # correct value for an error trap move
+    source_ref:                str | None = None 
+    is_error_trap:             bool       = False
+    error_correction_key:      str | None = None
 
 @dataclass
 class Contingencies:
@@ -245,8 +245,8 @@ class WorkRequest(BaseModel):
     teacher:   TeacherInput
     lesson:    LessonInput
     material:  str = ""
-    images:    list[str] = []           # base64 images for vision
-    documents: list[DocumentInput] = [] # pdf/docx/pptx/xlsx for server-side extraction
+    images:    list[str] = []           
+    documents: list[DocumentInput] = []
 
 class ChatMessage(BaseModel):
     role:    str
@@ -281,8 +281,6 @@ def ask_ollama(system_prompt: str, user_message: str,
 
 def ask_ollama_stream(system_prompt: str, user_message: str,
                       options: dict | None = None):
-    # Sync generator: FastAPI wraps it in a thread via StreamingResponse,
-    # so we can use blocking requests.post here without async complexity.
     payload: dict = {
         "model": MODEL,
         "messages": [
@@ -310,9 +308,9 @@ def _load_prompt(filename: str) -> str:
 
 # ── Document extraction ──────────────────────────────────────────
 
-_MAX_PDF_PAGES   = 8       # cap to keep vision payloads reasonable
-_PDF_RENDER_DPI  = 110     # readable but not huge
-_MAX_DOC_CHARS   = 6000    # per-document text cap
+_MAX_PDF_PAGES   = 8
+_PDF_RENDER_DPI  = 110
+_MAX_DOC_CHARS   = 6000
 
 def _extract_pdf(raw: bytes) -> tuple[str, list[str]]:
     """Render PDF pages to PNG (base64) + extract embedded text. Returns (text, images_b64)."""
