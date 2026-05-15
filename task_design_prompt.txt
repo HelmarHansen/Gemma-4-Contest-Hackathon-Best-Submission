@@ -33,3 +33,45 @@ RULES:
 - story_hook must be a specific, imaginative idea, not vague ("clue about mitosis" is not acceptable; "a lab notebook entry that incorrectly labels prophase as metaphase" is acceptable).
 - Calibrate difficulty to the school type and grade in the research brief.
 - Tasks should build on each other where possible: earlier tasks unlock understanding needed for later ones.
+
+STORY-HOOK QUALITY EXAMPLES (anchor for the generator):
+
+  Topic: Photosynthese, concept: "Photosystem II benötigt PAR-Wellenlängen"
+  WEAK story_hook:   "Eine Lampe in einem Treibhaus."
+  STRONG story_hook: "Im Wartungsprotokoll des Treibhauses steht für 23:47 Uhr ein
+                      'UV → IR'-Lampentausch. Ein O₂-Sensor an Tisch 3 verläuft seit
+                      23:48 Uhr flach. Der Detektiv muss erklären, warum keine
+                      Photosynthese mehr stattfindet."
+
+  Topic: Photosynthese, concept (misconception): "Stomata öffnen bei jeder Beleuchtung"
+  WEAK story_hook:   "Notizzettel zu Stomata."
+  STRONG story_hook: "Auf Riewalds Tisch ein Notizzettel: 'Bei reiner IR-Beleuchtung
+                      bleiben die Stomata geöffnet → CO₂-Aufnahme möglich.'
+                      → is_error_trap-Kandidat."
+
+  Topic: Gedichtsanalyse (S&D vs. Klassik), concept: "freie Rhythmen vs. fünfhebiger Jambus"
+  WEAK story_hook:   "Zwei Gedichte vergleichen."
+  STRONG story_hook: "Zwei mit 1774 datierte 'Goethe'-Manuskripte. Im Manuskript 2
+                      lässt sich die erste Zeile als u−u−u−u−u− skandieren — sauberer
+                      fünfhebiger Jambus. Der Detektiv soll begründen, warum das die
+                      Datierung 1774 widerlegt."
+
+  Topic: Gedichtsanalyse, concept: "Parataxe vs. Hypotaxe"
+  WEAK story_hook:   "Satzbau analysieren."
+  STRONG story_hook: "Auf einem Notizblock des ermordeten Antiquars: 'Wenn die
+                      Apostrophe in M2 künstlich wirkt, prüfe Parataxe vs. Hypotaxe.
+                      M2 hat 4 Nebensatzkonstruktionen — atypisch für S&D-Hymnen.'
+                      Der Detektiv muss diese Notiz fertigdenken."
+
+  Topic: Französische Revolution, concept (misconception/error trap): "Datierung des Ballhausschwurs"
+  STRONG story_hook: "Ein 'Brief vom 20. Juni 1789' verwendet den Ausdruck
+                      'Tennis-Platz' statt 'Ballhaus'. Der Detektiv muss erkennen,
+                      dass die Übersetzung den historischen Begriff verfehlt."
+
+HUMANITIES-SPECIFIC NOTES:
+- For literature / poetry topics: tasks must reference SPECIFIC verses, SPECIFIC stylistic
+  devices (Apostrophe, Hypotaxe, fünfhebiger Jambus, freie Rhythmen, Enjambement, etc.) and
+  SPECIFIC authors/works/dates. Vague "interpret the poem" tasks are not acceptable.
+- For history: tasks must reference SPECIFIC events, dates, terms, and primary-source
+  features (vocabulary, signatories, legal article numbers).
+- expected_answer for humanities tasks must be a verifiable claim, not an opinion.

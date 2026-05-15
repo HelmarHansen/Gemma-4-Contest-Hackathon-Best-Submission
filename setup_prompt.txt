@@ -298,7 +298,40 @@ MOVE CONTENT EXAMPLES:
   What the student must deduce: warm humid room air condensed on the cold pipe surface —
   this tells us the room was much warmer and more humid before the body was discovered.
 
-Every named measurement, substance, or value in content must come from topic_research or material.
+  Topic concept to test: "Photosystem II requires PAR wavelengths (~430/680 nm).
+                          Infrared cannot drive the light reaction; stomata close in the dark."
+  FORBIDDEN: "Without the right wavelength of light, photosynthesis stops."
+  FORBIDDEN: "Dr. Riewald says: 'Erklär mir, wie Photosynthese funktioniert.'"
+  RIGHT:     "Über dem Pflanzentisch hängen seit dem nächtlichen Wartungseintrag (23:47)
+              vier neue Strahler. Typenschild: Emissionsmaximum 850–940 nm. Der
+              O₂-Sensor an Tisch 3 verläuft seit 23:48 flach. Mikroskopische Aufnahmen
+              der Blattunterseite zeigen die Schließzellen geschlossen — trotz
+              CO₂-Überangebot in der Kammer. Eine CO₂-Düngeflasche neben dem Tisch ist
+              halbleer; laut gestrigem Lieferschein war sie voll."
+  What the student must deduce: IR drives no Photosystem II → keine Lichtreaktion →
+  kein O₂. Ohne PAR-Licht schließen die Stomata → kein CO₂-Uptake durch die Pflanzen.
+  CO₂ aus der Düngung sammelt sich in der versiegelten Kammer an — die eigentliche
+  Mordwaffe.
+
+  Topic concept to test: "Sturm und Drang ≠ Klassik: freie Rhythmen + Parataxe + Apostrophe
+                          + Genie-Pathos (S&D) vs. Blankvers + Hypotaxe + Maß-Vokabular (Klassik)"
+  FORBIDDEN: "Im zweiten Manuskript erkennt man klassische Stilmerkmale."
+  FORBIDDEN: "Kennelbach erklärt den Unterschied zwischen S&D und Klassik."
+  RIGHT:     "Beide Manuskripte tragen das Datum '1774, Frankfurt'. Manuskript 1 öffnet
+              mit 'Bedecke deinen Himmel, Zeus, mit Wolkendunst!' — Imperativ, direkte
+              Anrede, Ausrufezeichen. Manuskript 2 öffnet mit 'Heilig sind mir die
+              Götter, doch ich diene nicht ihrer Macht, wenn das Maß mich nicht zur
+              Mäßigung ruft.' — drei Nebensätze, ein Konditional. Skansion der ersten
+              Zeile von M2: u−u−u−u−u−. Die Lexik in M2 wiederholt 'Mäßigung',
+              'Humanität', 'edler Sinn'; in M1 dagegen 'Glut', 'donnernd', 'Trotz'."
+  What the student must deduce: 1774 = Sturm und Drang. M1 trägt alle Marker der
+  Hymne (freie Rhythmen, Apostrophe, parataktisch, Genie-Pathos). M2 zeigt
+  fünfhebigen Jambus, Hypotaxe, Maß-Vokabular — das ist Klassik, kein Goethe von
+  1774. M2 ist die Fälschung.
+
+Every named measurement, substance, value, or quoted line in content must come from
+topic_research or material. For humanities topics, "values" includes specific dates,
+specific verse lines, specific stylistic terms, named works, and named authors.
 
 DIFFICULTY CONTROLS THE ACADEMIC DEMAND — NOT THE STORY.
 - 0.0–0.3 (Gentle): Basic vocabulary and single-concept answers suffice. Partial answers advance the story.
@@ -339,6 +372,24 @@ fact using their subject knowledge. Mark the move with is_error_trap: true, fill
 error_correction_key with the correct value, and fill hint with the curriculum context that
 makes correction possible. The error must be specific and correctable from topic_research or
 material — never from general knowledge alone.
+
+ERROR TRAP EXAMPLES BY DOMAIN (for inspiration, do not copy verbatim):
+  Natural science:
+    Document claim: "Mit reiner IR-Beleuchtung bleiben die Stomata geöffnet → CO₂-Aufnahme möglich."
+    Correction key: "Stomata öffnen unter PAR (400–700 nm), nicht unter Infrarot — sie schließen unter IR-only."
+  Humanities (literature):
+    Document claim: "Goethes 'Prometheus' (1774): klassischer Goethe-Stil, fünfhebiger Jambus, Antikenbezug."
+    Correction key: "Prometheus (1774) = Sturm und Drang, freie Rhythmen, rebellische Apostrophe — nicht Klassik, nicht Blankvers."
+  History:
+    Document claim in a "1789 letter": "Wir versammeln uns im Saal der Tennis-Plätze des Königlichen Schlosses."
+    Correction key: "Der Ballhausschwur fand am 20. Juni 1789 statt — der historische Begriff ist 'Ballhaus' (jeu de paume), nicht 'Tennis-Platz'."
+  Mathematics:
+    Document claim: "Bei diesem Stichprobenumfang ergibt sich ein Mittelwert (Median) von 47."
+    Correction key: "Mittelwert ≠ Median — beide werden hier verwechselt; nur einer der beiden gilt."
+
+Error traps are not limited to numbers. A misused term, a misdated event, a wrong
+syntactic claim about a verse, or a confused author attribution all qualify — as long
+as the correct answer is anchored in topic_research or material.
 
 CAUSAL PREREQUISITE CHAIN.
 Each move's expected_student_response must be unreachable without having engaged with the
@@ -409,12 +460,22 @@ EXAMPLES OF TOPIC-CAUSAL CRIMES:
     flooded and then drained a sealed room, using evaporative cooling to drop the temperature
     below survival threshold. Only someone who understands latent heat of evaporation could
     have calculated the timing. The flood left no trace; only a mineral residue ring remains.
-  Photosynthesis: A rare plant died, destroying the alibi of the suspect who claimed to
-    have kept it alive in a dark storage room. Understanding photosynthesis proves the plant
-    could not have survived — the alibi collapses.
+  Photosynthesis ("Treibhaus 3"): A botanist is found dead in a sealed greenhouse at dawn.
+    PAR lamps were swapped for infrared, ventilation was disabled, CO₂ fertilisation stayed
+    online. Without 680-nm light there is no Photosystem-II activity → no O₂ release; without
+    PAR the stomata close → the plants don't even absorb the injected CO₂. CO₂ accumulates
+    overnight to lethal levels. The crime is unsolvable without knowing both Photosystem II
+    and stomata regulation.
   French Revolution: The forged decree uses terminology that only appeared after 1791 —
     a student who knows the timeline can date the forgery to after the suspect claimed to
     have left Paris.
+  Poetry analysis ("Lex & Faun"): Two manuscripts on a murdered antiquarian's desk are
+    both labelled "Goethe, 1774". Only one is genuine: it shows free rhythms, parataxis,
+    apostrophe, and Genie-pathos (Sturm und Drang). The other betrays itself with
+    five-foot iambic verse, hypotaxis, and Maß-vocabulary (Klassik) — stylistic markers
+    of a phase Goethe had not yet entered in 1774. The killer is whoever can no longer
+    let the next-day authentication go ahead. Solving the case requires reading the
+    style.
 
 THE CRIME CANNOT BE SOLVED WITHOUT ALL CORE TASKS.
 The closing move must require the student to name the culprit AND explain the mechanism.
