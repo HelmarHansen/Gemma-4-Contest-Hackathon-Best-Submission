@@ -239,6 +239,7 @@ class WorkRequest(BaseModel):
     teacher:  TeacherInput
     lesson:   LessonInput
     material: str = ""
+    images:   list[str] = []  # base64-encoded image data (jpeg/png/webp)
 
 class ChatMessage(BaseModel):
     role:    str
@@ -252,18 +253,22 @@ class ChatRequest(BaseModel):
 # ── Ollama helpers ───────────────────────────────────────────────
 
 def ask_ollama(system_prompt: str, user_message: str,
-               options: dict | None = None) -> str:
+               options: dict | None = None,
+               images: list[str] | None = None) -> str:
+    user_msg: dict = {"role": "user", "content": user_message}
+    if images:
+        user_msg["images"] = images
     payload: dict = {
         "model": MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_message},
+            user_msg,
         ],
         "stream": False,
     }
     if options:
         payload["options"] = options
-    response = requests.post(OLLAMA_URL, json=payload, timeout=120)
+    response = requests.post(OLLAMA_URL, json=payload, timeout=600)
     response.raise_for_status()
     return response.json()["message"]["content"]
 
@@ -436,6 +441,14 @@ def _parse_json_stage(raw: str, label: str) -> dict:
 
 def run_research_stage(req: "WorkRequest") -> dict:
     system_prompt = _load_prompt("research_prompt.txt")
+    image_note = ""
+    if req.images:
+        image_note = (
+            f"\n\nIMAGES: {len(req.images)} image(s) attached as study material. "
+            "Read every visible text, diagram label, formula, and annotation. "
+            "Treat the image content as authoritative source material — use facts from the images "
+            "in core_concepts, key_facts, and misconceptions."
+        )
     user_message = (
         f"Topic: {req.lesson.topic}\n"
         f"School type: {req.lesson.school_type or 'not specified'}\n"
@@ -443,8 +456,10 @@ def run_research_stage(req: "WorkRequest") -> dict:
         f"Investigation style: {req.lesson.mode}\n"
         f"Language: {req.lesson.language}\n"
         f"Material:\n{req.material[:3000] if req.material else 'none'}"
+        f"{image_note}"
     )
-    raw = ask_ollama(system_prompt, user_message, options=_OPTS_RESEARCH)
+    raw = ask_ollama(system_prompt, user_message,
+                     options=_OPTS_RESEARCH, images=req.images or None)
     print(f"Stage 1 raw length: {len(raw)}")
     try:
         return _parse_json_stage(raw, "Stage 1 Research")
