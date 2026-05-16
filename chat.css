@@ -117,10 +117,10 @@ body {
   padding: 11px 12px;
   border-radius: 10px;
   margin: 2px 0;
-  cursor: pointer;
+  cursor: default;
   border: 1px solid transparent;
   display: grid;
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 28px 1fr;
   align-items: center;
   gap: 10px;
   transition: background .15s ease, border-color .15s ease;

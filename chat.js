@@ -10,7 +10,40 @@ if (!raw) {
   window.location.href = "/";
   throw new Error("No blueprint found");
 }
-const blueprint = JSON.parse(raw);
+let blueprint;
+try {
+  blueprint = JSON.parse(raw);
+} catch (e) {
+  // Corrupted blob — wipe and bounce so the user can regenerate, instead of
+  // leaving every DOM binding below unattached because the script crashed.
+  sessionStorage.removeItem("mindheist_blueprint");
+  window.location.href = "/";
+  throw new Error("Stored blueprint is not valid JSON: " + e.message);
+}
+
+/* postWithRestore: if the backend has forgotten this session (e.g. it was
+   restarted between case-generation and chat), re-register the in-memory
+   blueprint and retry once. Without this, every /api/chat call returns 404
+   and the user just sees the fallback message every time. */
+async function postWithRestore(url, body) {
+  const init = {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  };
+  let res = await fetch(url, init);
+  if (res.status === 404) {
+    try {
+      await fetch("/api/session/restore", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(blueprint),
+      });
+    } catch (_) { /* fall through and surface the original 404 */ }
+    res = await fetch(url, init);
+  }
+  return res;
+}
 
 /* ---------- utils ---------- */
 
@@ -93,8 +126,8 @@ function populateScenes() {
     el.className = "scene" + (i === 0 ? " active" : "");
     el.dataset.phaseId = phase.id;
     el.innerHTML =
-      '<div class="title">' + escapeHtml(phase.name || ("Act " + (i + 1))) + "</div>" +
-      '<div class="num">' + (i + 1) + "</div>";
+      '<div class="pico">' + (i + 1) + "</div>" +
+      '<div class="title">' + escapeHtml(phase.name || ("Act " + (i + 1))) + "</div>";
     dom.scenesList.appendChild(el);
   });
 }
@@ -298,14 +331,10 @@ async function sendInvestigationMessage(text, { isHint = false } = {}) {
   const historySnapshot = investigationHistory.slice();
 
   try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: blueprint.session_id,
-        message:    text,
-        history:    historySnapshot,
-      }),
+    const res = await postWithRestore("/api/chat", {
+      session_id: blueprint.session_id,
+      message:    text,
+      history:    historySnapshot,
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
@@ -357,14 +386,10 @@ dom.hintBtn?.addEventListener("click", () =>
 (async function openCase() {
   const typingEl = showTyping(dom.feedInv);
   try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: blueprint.session_id,
-        message:    "[SYSTEM: begin the case]",
-        history:    [],
-      }),
+    const res = await postWithRestore("/api/chat", {
+      session_id: blueprint.session_id,
+      message:    "[SYSTEM: begin the case]",
+      history:    [],
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -533,15 +558,11 @@ async function sendInterrogationMessage(text) {
   scrollBottom(dom.transcriptInter);
 
   try {
-    const res = await fetch("/api/interrogate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id:   blueprint.session_id,
-        character_id: id,
-        message:      text,
-        history:      history.slice(0, -1), // history excludes the current message
-      }),
+    const res = await postWithRestore("/api/interrogate", {
+      session_id:   blueprint.session_id,
+      character_id: id,
+      message:      text,
+      history:      history.slice(0, -1), // history excludes the current message
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -577,6 +598,13 @@ function setTab(name) {
   dom.tabInterrogation.classList.toggle("on", !isInv);
   dom.tabInvestigation.setAttribute("aria-selected", String(isInv));
   dom.tabInterrogation.setAttribute("aria-selected", String(!isInv));
+  // Use inline display alongside the .hidden class. Class-only toggling fought
+  // .chat-panel { display: flex } from cached/older stylesheets and ended up
+  // showing both panels stacked; inline style always wins.
+  dom.panelInvestigation.style.display = isInv ? "flex" : "none";
+  dom.panelInterrogation.style.display = isInv ? "none" : "flex";
+  dom.sideActs.style.display           = isInv ? "flex" : "none";
+  dom.sideCharacters.style.display     = isInv ? "none" : "flex";
   dom.panelInvestigation.classList.toggle("hidden", !isInv);
   dom.panelInterrogation.classList.toggle("hidden", isInv);
   dom.sideActs.classList.toggle("hidden", !isInv);
@@ -585,9 +613,19 @@ function setTab(name) {
     loadCharacters();
   }
 }
+// Apply the initial tab once, so the inline display values are coherent
+// even if the cached HTML drifted from the current chat.js.
+setTab("investigation");
 
 dom.tabInvestigation.addEventListener("click", () => setTab("investigation"));
 dom.tabInterrogation.addEventListener("click", () => setTab("interrogation"));
+
+document.getElementById("end-btn")?.addEventListener("click", () => {
+  if (confirm("End the session and return to the library?")) {
+    sessionStorage.removeItem("mindheist_blueprint");
+    window.location.href = "/";
+  }
+});
 
 // Pre-fetch characters so the tab swap is instant.
 loadCharacters();

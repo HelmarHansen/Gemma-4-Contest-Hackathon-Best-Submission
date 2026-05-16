@@ -762,6 +762,42 @@ def work_stream(req: WorkRequest):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+def _restore_blueprint(data: dict) -> SessionBlueprint:
+    """Rebuild a SessionBlueprint from a dict produced by `SessionBlueprint.to_dict()`.
+    Used by /api/session/restore so the frontend can recover after a backend restart
+    without having to regenerate the whole case.
+    """
+    def fit(cls_, d):
+        if not isinstance(d, dict):
+            return cls_()
+        keys = {f.name for f in dataclasses.fields(cls_)}
+        return cls_(**{k: v for k, v in d.items() if k in keys})
+    return SessionBlueprint(
+        session_id=data.get("session_id") or "session",
+        teacher=fit(Teacher, data.get("teacher") or {}),
+        session=fit(Session, data.get("session") or {}),
+        topic=fit(Topic, data.get("topic") or {}),
+        phases=[fit(Phase, p) for p in (data.get("phases") or [])],
+        moves=[fit(Move, m) for m in (data.get("moves") or [])],
+        characters=[fit(Character, c) for c in (data.get("characters") or [])],
+        contingencies=fit(Contingencies, data.get("contingencies") or {}),
+        opening=fit(Opening, data.get("opening") or {}),
+        closing=fit(Closing, data.get("closing") or {}),
+        execution_rules=fit(ExecutionRules, data.get("execution_rules") or {}),
+    )
+
+@app.post("/api/session/restore")
+def restore_session(blueprint_data: dict):
+    try:
+        bp = _restore_blueprint(blueprint_data)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid blueprint: {e}")
+    already = bp.session_id in _sessions
+    if not already:
+        _sessions[bp.session_id] = bp
+        _session_state[bp.session_id] = _init_state(bp)
+    return {"session_id": bp.session_id, "restored": not already}
+
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     blueprint = _sessions.get(req.session_id)

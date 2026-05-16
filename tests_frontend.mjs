@@ -90,9 +90,9 @@ if (ok3) pass("parseSections handles tagged, untagged, and multi-NPC inputs");
 // -- Test 4: chat.html links chat.css + script ---------------------------------
 console.log("\n[Test F4] chat.html — asset references");
 let ok4 = true;
-ok4 &= /href="chat\.css"/.test(html) || fail("missing chat.css link");
-ok4 &= /href="shared\.css"/.test(html) || fail("missing shared.css link");
-ok4 &= /src="chat\.js"/.test(html) || fail("missing chat.js script");
+ok4 &= /href="chat\.css(\?[^"]*)?"/.test(html) || fail("missing chat.css link");
+ok4 &= /href="shared\.css(\?[^"]*)?"/.test(html) || fail("missing shared.css link");
+ok4 &= /src="chat\.js(\?[^"]*)?"/.test(html) || fail("missing chat.js script");
 if (ok4) pass("html references chat.css, shared.css, chat.js");
 
 // -- Test 5: chat.js no longer references undefined helpers --------------------
