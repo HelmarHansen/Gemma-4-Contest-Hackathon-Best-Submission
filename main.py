@@ -177,31 +177,7 @@ class SessionBlueprint:
 
     @classmethod
     def from_llm_response(cls, raw: str) -> "SessionBlueprint":
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
-            raise ValueError("No JSON found in model response")
-        json_str = match.group()
-        json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", json_str)
-        # Escape unescaped backslashes in strings
-        json_str = re.sub(r'\\(?![\\"/bfnrt])', r'\\\\', json_str)
-        json_str = re.sub(
-            r'"((?:[^"\\]|\\.)*)"',
-            lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
-            json_str,
-        )
-        depth = 0
-        last_close = -1
-        for i, ch in enumerate(json_str):
-            if ch == '{':
-                depth += 1
-            elif ch == '}':
-                depth -= 1
-                if depth == 0:
-                    last_close = i
-                    break
-        if last_close != -1:
-            json_str = json_str[: last_close + 1]
-        data = json.loads(json_str)
+        data = json.loads(_extract_json_object(raw))
 
         def fit(cls_, d: dict):
             # Strip unknown keys so new blueprint fields don't break old dataclasses
@@ -536,25 +512,44 @@ No other text. Be strict: flag anything that is wrong, oversimplified to the poi
 
 # ── Three-stage story builder ────────────────────────────────────
 
-def _parse_json_stage(raw: str, label: str) -> dict:
-    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw)
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+def _extract_json_object(raw: str) -> str:
+    """Salvage a JSON object from messy LLM output.
+    Strips control chars, escapes raw backslashes (e.g. `\\frac`, `\\sin`,
+    Windows paths) and unescaped newlines inside strings, and trims to the
+    first balanced `{...}` so trailing prose doesn't poison `json.loads`.
+    """
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
-        raise ValueError(f"{label}: no JSON found in model response")
-    json_str = match.group()
+        raise ValueError("No JSON object found in response")
+    s = match.group()
+    s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
+    # Escape lone backslashes that aren't part of a valid JSON escape.
+    s = re.sub(r'\\(?![\\"/bfnrtu])', r'\\\\', s)
+    # Escape raw newlines/tabs that sit inside string literals.
+    s = re.sub(
+        r'"((?:[^"\\]|\\.)*)"',
+        lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
+        s,
+    )
     depth = 0
     last_close = -1
-    for i, ch in enumerate(json_str):
-        if ch == "{":
+    for i, ch in enumerate(s):
+        if ch == '{':
             depth += 1
-        elif ch == "}":
+        elif ch == '}':
             depth -= 1
             if depth == 0:
                 last_close = i
                 break
     if last_close != -1:
-        json_str = json_str[: last_close + 1]
-    return json.loads(json_str)
+        s = s[: last_close + 1]
+    return s
+
+def _parse_json_stage(raw: str, label: str) -> dict:
+    try:
+        return json.loads(_extract_json_object(raw))
+    except (ValueError, json.JSONDecodeError) as e:
+        raise ValueError(f"{label}: {e}") from e
 
 def run_research_stage(req: "WorkRequest") -> dict:
     system_prompt = _load_prompt("research_prompt.txt")
