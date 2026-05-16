@@ -252,7 +252,8 @@ class InterrogationRequest(BaseModel):
 
 def ask_ollama(system_prompt: str, user_message: str,
                options: dict | None = None,
-               images: list[str] | None = None) -> str:
+               images: list[str] | None = None,
+               force_json: bool = False) -> str:
     user_msg: dict = {"role": "user", "content": user_message}
     if images:
         user_msg["images"] = images
@@ -266,6 +267,10 @@ def ask_ollama(system_prompt: str, user_message: str,
     }
     if options:
         payload["options"] = options
+    if force_json:
+        # Ollama's grammar-constrained JSON mode — generation is bounded so the
+        # response is guaranteed to be syntactically valid JSON.
+        payload["format"] = "json"
     response = requests.post(OLLAMA_URL, json=payload, timeout=600)
     response.raise_for_status()
     return response.json()["message"]["content"]
@@ -590,12 +595,13 @@ def _robust_parse(raw: str, label: str, repair_options: dict) -> dict:
         err = e1
         last_raw = raw
 
-    # Tier 2
+    # Tier 2 — model repair with format=json so output is grammar-constrained.
     repair = ("The following is supposed to be a JSON object but contains "
-              "syntax errors. Return ONLY the corrected JSON — no markdown, "
-              "no prose, no code fences:\n\n" + last_raw[:8000])
+              "syntax errors. Return ONLY the corrected JSON object:\n\n"
+              + last_raw[:8000])
     raw2 = ask_ollama("Output only valid JSON.", repair,
-                      options={**repair_options, "temperature": 0.05})
+                      options={**repair_options, "temperature": 0.05},
+                      force_json=True)
     try:
         return json.loads(_extract_json_object(raw2))
     except (ValueError, json.JSONDecodeError) as e2:
@@ -603,13 +609,14 @@ def _robust_parse(raw: str, label: str, repair_options: dict) -> dict:
         err = e2
         last_raw = raw2
 
-    # Tier 3 — feed the parser's error message back so the model knows where to look.
+    # Tier 3 — feed the parser's error message back, again with format=json.
     repair2 = (f"Python's json.loads raised: {err}\n\n"
                "Fix that specific issue and return ONLY the corrected JSON "
-               "(no markdown, no prose):\n\n" + last_raw[:8000])
+               "object:\n\n" + last_raw[:8000])
     raw3 = ask_ollama("You are a JSON repair tool. Output only valid JSON.",
                       repair2,
-                      options={**repair_options, "temperature": 0.0})
+                      options={**repair_options, "temperature": 0.0},
+                      force_json=True)
     try:
         return json.loads(_extract_json_object(raw3))
     except (ValueError, json.JSONDecodeError) as e3:
@@ -650,7 +657,8 @@ def run_research_stage(req: "WorkRequest") -> dict:
         f"{image_note}"
     )
     raw = ask_ollama(system_prompt, user_message,
-                     options=_OPTS_RESEARCH, images=combined_images or None)
+                     options=_OPTS_RESEARCH, images=combined_images or None,
+                     force_json=True)
     print(f"Stage 1 raw length: {len(raw)}")
     return _robust_parse(raw, "Stage 1 Research", _OPTS_RESEARCH)
 
@@ -660,7 +668,8 @@ def run_task_design_stage(req: "WorkRequest", research: dict) -> dict:
         "research": research,
         "lesson":   req.lesson.model_dump(),
     }, ensure_ascii=False)
-    raw = ask_ollama(system_prompt, user_message, options=_OPTS_TASK_DESIGN)
+    raw = ask_ollama(system_prompt, user_message,
+                     options=_OPTS_TASK_DESIGN, force_json=True)
     print(f"Stage 2 raw length: {len(raw)}")
     return _robust_parse(raw, "Stage 2 Tasks", _OPTS_TASK_DESIGN)
 
@@ -673,7 +682,8 @@ def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "Session
         "topic_research": research,
         "task_list":      tasks,
     }, ensure_ascii=False)
-    raw = ask_ollama(system_prompt, user_message, options=_OPTS_BLUEPRINT)
+    raw = ask_ollama(system_prompt, user_message,
+                     options=_OPTS_BLUEPRINT, force_json=True)
     print(f"Stage 3 raw length: {len(raw)}")
     data = _robust_parse(raw, "Stage 3 Blueprint", _OPTS_BLUEPRINT)
     return SessionBlueprint._from_dict(data)
