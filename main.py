@@ -519,12 +519,70 @@ No other text. Be strict: flag anything that is wrong, oversimplified to the poi
 
 # ── Three-stage story builder ────────────────────────────────────
 
+_HEX = set("0123456789abcdefABCDEF")
+
+def _repair_strings(s: str) -> str:
+    """String-aware repair walker — only touches characters *inside* JSON
+    string literals. Fixes the three things `json.loads` chokes on:
+      - invalid `\\X` escapes (X not in `\\"/bfnrt`),
+      - `\\u` not followed by exactly 4 hex digits (e.g. `\\under`),
+      - raw newlines/tabs/CR sitting inside a string literal.
+    Everything outside string literals (structural braces, commas, whitespace)
+    is passed through unchanged.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    in_string = False
+    while i < n:
+        ch = s[i]
+        if not in_string:
+            if ch == '"':
+                in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        # in_string == True
+        if ch == '"':
+            in_string = False
+            out.append(ch)
+            i += 1
+        elif ch == '\\':
+            if i + 1 >= n:
+                # Dangling backslash at EOF — double it so json doesn't choke.
+                out.append('\\\\')
+                i += 1
+                continue
+            nxt = s[i + 1]
+            if nxt in '\\"/bfnrt':
+                out.append(ch); out.append(nxt)
+                i += 2
+            elif nxt == 'u':
+                if i + 5 < n and all(c in _HEX for c in s[i + 2:i + 6]):
+                    out.append(s[i:i + 6])
+                    i += 6
+                else:
+                    # `\u` without 4 hex digits — escape the backslash instead.
+                    out.append('\\\\')
+                    i += 1
+            else:
+                out.append('\\\\')
+                i += 1
+        elif ch == '\n':
+            out.append('\\n'); i += 1
+        elif ch == '\r':
+            out.append('\\r'); i += 1
+        elif ch == '\t':
+            out.append('\\t'); i += 1
+        else:
+            out.append(ch); i += 1
+    return ''.join(out)
+
 def _extract_json_object(raw: str) -> str:
     """Salvage a JSON object from messy LLM output.
-    Handles: markdown code fences, smart quotes, raw backslashes (`\\frac`,
-    Windows paths), raw newlines/tabs inside strings, and trailing commas.
-    Trims to the first string-aware balanced `{...}` so trailing prose doesn't
-    poison `json.loads`.
+    Handles: markdown code fences, smart quotes, invalid backslash escapes
+    (`\\frac`, `\\under`, Windows paths), raw newlines/tabs inside strings,
+    trailing commas, and string-aware balanced `{...}` trimming.
     """
     # Strip markdown code fences (```json ... ``` or just ```).
     s = re.sub(r"```(?:json|JSON)?\s*", "", raw)
@@ -539,21 +597,15 @@ def _extract_json_object(raw: str) -> str:
         raise ValueError("No JSON object found in response")
     s = match.group()
 
-    # Strip control chars (keep tab, lf, cr — they'll be escaped below).
+    # Strip control chars (keep tab, lf, cr — _repair_strings escapes them).
     s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
-    # Escape lone backslashes that aren't part of a valid JSON escape.
-    s = re.sub(r'\\(?![\\"/bfnrtu])', r'\\\\', s)
-    # Escape raw newlines/tabs that sit inside string literals.
-    s = re.sub(
-        r'"((?:[^"\\]|\\.)*)"',
-        lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
-        s,
-    )
+    # Fix invalid escapes + raw whitespace inside string literals.
+    s = _repair_strings(s)
     # Remove trailing commas before } or ].
     s = re.sub(r",(\s*[}\]])", r"\1", s)
 
-    # String-aware balanced trim — earlier version ignored quoted braces and
-    # could close on a `}` that actually sat inside a string literal.
+    # String-aware balanced trim — a `}` inside a string literal must not
+    # terminate the iteration.
     depth = 0
     last_close = -1
     in_string = False
@@ -622,12 +674,6 @@ def _robust_parse(raw: str, label: str, repair_options: dict) -> dict:
     except (ValueError, json.JSONDecodeError) as e3:
         raise ValueError(f"{label}: all repair tiers failed; last error: {e3}") from e3
 
-def _parse_json_stage(raw: str, label: str) -> dict:
-    """Back-compat shim; new callers should use _robust_parse directly."""
-    try:
-        return json.loads(_extract_json_object(raw))
-    except (ValueError, json.JSONDecodeError) as e:
-        raise ValueError(f"{label}: {e}") from e
 
 def run_research_stage(req: "WorkRequest") -> dict:
     system_prompt = _load_prompt("research_prompt.txt")
