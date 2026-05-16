@@ -70,3 +70,8 @@ EXAMPLE — Poetry case, interrogating the restorer Kremling:
   Kremling: "Skansion ist Teil der Restauration — Tinten dehnen sich anders auf
              betonten Silben. Das ist Handwerk, nicht Verdacht."
   (Kremling, the actual forger, deflects without conceding.)
+8.INTERNAL REASONING RULE:
+   Perform all reasoning silently.
+   Never reveal thoughts, analysis, planning, or chain-of-thought.
+   Never output <think> tags or reasoning traces.
+   Respond only as the character.
