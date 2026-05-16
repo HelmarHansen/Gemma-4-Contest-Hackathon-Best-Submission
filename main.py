@@ -176,10 +176,8 @@ class SessionBlueprint:
         return d
 
     @classmethod
-    def from_llm_response(cls, raw: str) -> "SessionBlueprint":
-        data = json.loads(_extract_json_object(raw))
-
-        def fit(cls_, d: dict):
+    def _from_dict(cls, data: dict) -> "SessionBlueprint":
+        def fit(cls_, d):
             # Strip unknown keys so new blueprint fields don't break old dataclasses
             if not isinstance(d, dict):
                 return cls_()
@@ -202,6 +200,10 @@ class SessionBlueprint:
             closing=fit(Closing, get("closing", {})),
             execution_rules=fit(ExecutionRules, get("execution_rules", {})),
         )
+
+    @classmethod
+    def from_llm_response(cls, raw: str) -> "SessionBlueprint":
+        return cls._from_dict(json.loads(_extract_json_object(raw)))
 
 # ── Request schema ───────────────────────────────────────────────
 
@@ -514,14 +516,25 @@ No other text. Be strict: flag anything that is wrong, oversimplified to the poi
 
 def _extract_json_object(raw: str) -> str:
     """Salvage a JSON object from messy LLM output.
-    Strips control chars, escapes raw backslashes (e.g. `\\frac`, `\\sin`,
-    Windows paths) and unescaped newlines inside strings, and trims to the
-    first balanced `{...}` so trailing prose doesn't poison `json.loads`.
+    Handles: markdown code fences, smart quotes, raw backslashes (`\\frac`,
+    Windows paths), raw newlines/tabs inside strings, and trailing commas.
+    Trims to the first string-aware balanced `{...}` so trailing prose doesn't
+    poison `json.loads`.
     """
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    # Strip markdown code fences (```json ... ``` or just ```).
+    s = re.sub(r"```(?:json|JSON)?\s*", "", raw)
+    s = s.replace("```", "")
+    # Normalize smart quotes to ASCII.
+    s = (s.replace("“", '"').replace("”", '"')
+           .replace("„", '"').replace("‟", '"')
+           .replace("‘", "'").replace("’", "'"))
+
+    match = re.search(r"\{.*\}", s, re.DOTALL)
     if not match:
         raise ValueError("No JSON object found in response")
     s = match.group()
+
+    # Strip control chars (keep tab, lf, cr — they'll be escaped below).
     s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
     # Escape lone backslashes that aren't part of a valid JSON escape.
     s = re.sub(r'\\(?![\\"/bfnrtu])', r'\\\\', s)
@@ -531,9 +544,27 @@ def _extract_json_object(raw: str) -> str:
         lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
         s,
     )
+    # Remove trailing commas before } or ].
+    s = re.sub(r",(\s*[}\]])", r"\1", s)
+
+    # String-aware balanced trim — earlier version ignored quoted braces and
+    # could close on a `}` that actually sat inside a string literal.
     depth = 0
     last_close = -1
+    in_string = False
+    escape = False
     for i, ch in enumerate(s):
+        if escape:
+            escape = False
+            continue
+        if ch == '\\':
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
         if ch == '{':
             depth += 1
         elif ch == '}':
@@ -545,7 +576,47 @@ def _extract_json_object(raw: str) -> str:
         s = s[: last_close + 1]
     return s
 
+def _robust_parse(raw: str, label: str, repair_options: dict) -> dict:
+    """Three-tier JSON recovery:
+       1. local cleanup (handles ~95% of LLM JSON quirks),
+       2. ask the model to repair generically,
+       3. ask again with the specific parser error fed back in.
+    """
+    # Tier 1
+    try:
+        return json.loads(_extract_json_object(raw))
+    except (ValueError, json.JSONDecodeError) as e1:
+        print(f"{label}: local parse failed ({e1}), asking model to repair…")
+        err = e1
+        last_raw = raw
+
+    # Tier 2
+    repair = ("The following is supposed to be a JSON object but contains "
+              "syntax errors. Return ONLY the corrected JSON — no markdown, "
+              "no prose, no code fences:\n\n" + last_raw[:8000])
+    raw2 = ask_ollama("Output only valid JSON.", repair,
+                      options={**repair_options, "temperature": 0.05})
+    try:
+        return json.loads(_extract_json_object(raw2))
+    except (ValueError, json.JSONDecodeError) as e2:
+        print(f"{label}: tier-2 repair failed ({e2}), asking with error feedback…")
+        err = e2
+        last_raw = raw2
+
+    # Tier 3 — feed the parser's error message back so the model knows where to look.
+    repair2 = (f"Python's json.loads raised: {err}\n\n"
+               "Fix that specific issue and return ONLY the corrected JSON "
+               "(no markdown, no prose):\n\n" + last_raw[:8000])
+    raw3 = ask_ollama("You are a JSON repair tool. Output only valid JSON.",
+                      repair2,
+                      options={**repair_options, "temperature": 0.0})
+    try:
+        return json.loads(_extract_json_object(raw3))
+    except (ValueError, json.JSONDecodeError) as e3:
+        raise ValueError(f"{label}: all repair tiers failed; last error: {e3}") from e3
+
 def _parse_json_stage(raw: str, label: str) -> dict:
+    """Back-compat shim; new callers should use _robust_parse directly."""
     try:
         return json.loads(_extract_json_object(raw))
     except (ValueError, json.JSONDecodeError) as e:
@@ -581,14 +652,7 @@ def run_research_stage(req: "WorkRequest") -> dict:
     raw = ask_ollama(system_prompt, user_message,
                      options=_OPTS_RESEARCH, images=combined_images or None)
     print(f"Stage 1 raw length: {len(raw)}")
-    try:
-        return _parse_json_stage(raw, "Stage 1 Research")
-    except Exception as e:
-        print(f"Stage 1 parse failed ({e}), retrying…")
-        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:4000]
-        raw2 = ask_ollama("Output only valid JSON. No markdown, no text.", repair,
-                          options={**_OPTS_RESEARCH, "temperature": 0.05})
-        return _parse_json_stage(raw2, "Stage 1 Research (retry)")
+    return _robust_parse(raw, "Stage 1 Research", _OPTS_RESEARCH)
 
 def run_task_design_stage(req: "WorkRequest", research: dict) -> dict:
     system_prompt = _load_prompt("task_design_prompt.txt")
@@ -598,14 +662,7 @@ def run_task_design_stage(req: "WorkRequest", research: dict) -> dict:
     }, ensure_ascii=False)
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_TASK_DESIGN)
     print(f"Stage 2 raw length: {len(raw)}")
-    try:
-        return _parse_json_stage(raw, "Stage 2 Tasks")
-    except Exception as e:
-        print(f"Stage 2 parse failed ({e}), retrying…")
-        repair = "Fix this JSON and return only the corrected JSON, no other text:\n\n" + raw[:10000]
-        raw2 = ask_ollama("Output only valid JSON. No markdown, no text.", repair,
-                          options={**_OPTS_TASK_DESIGN, "temperature": 0.05})
-        return _parse_json_stage(raw2, "Stage 2 Tasks (retry)")
+    return _robust_parse(raw, "Stage 2 Tasks", _OPTS_TASK_DESIGN)
 
 def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "SessionBlueprint":
     system_prompt = _load_prompt("setup_prompt.txt")
@@ -618,19 +675,8 @@ def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "Session
     }, ensure_ascii=False)
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_BLUEPRINT)
     print(f"Stage 3 raw length: {len(raw)}")
-    try:
-        return SessionBlueprint.from_llm_response(raw)
-    except (ValueError, json.JSONDecodeError) as first_err:
-        print(f"Stage 3 blueprint parse failed ({first_err}), retrying with repair…")
-        repair_prompt = (
-            "The following text contains a JSON object with syntax errors. "
-            "Output only the corrected, complete, valid JSON — no explanation, no markdown:\n\n"
-            + raw[:16000]
-        )
-        raw2 = ask_ollama("You are a JSON repair tool. Output only valid JSON.",
-                          repair_prompt,
-                          options={**_OPTS_BLUEPRINT, "temperature": 0.05})
-        return SessionBlueprint.from_llm_response(raw2)
+    data = _robust_parse(raw, "Stage 3 Blueprint", _OPTS_BLUEPRINT)
+    return SessionBlueprint._from_dict(data)
 
 def _run_validation(blueprint: "SessionBlueprint") -> None:
     try:
