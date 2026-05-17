@@ -28,7 +28,7 @@ _OPTS_BLUEPRINT   = {"temperature": 0.25, "top_p": 0.85, "top_k": 40,
 _OPTS_VALIDATE    = {"temperature": 0.10, "top_p": 0.80, "top_k": 20,
                      "repeat_penalty": 1.00, "num_predict": 1536}
 _OPTS_CHAT        = {"temperature": 0.30, "top_p": 0.88, "top_k": 45,
-                     "repeat_penalty": 1.20, "num_predict": 2048}
+                     "repeat_penalty": 1.20, "num_predict": 1100}
 _OPTS_INTERROGATE = {"temperature": 0.45, "top_p": 0.90, "top_k": 50,
                      "repeat_penalty": 1.15, "num_predict": 768}
 
@@ -215,10 +215,10 @@ class TeacherInput(BaseModel):
 
 class LessonInput(BaseModel):
     topic:       str
-    mode:        str
-    language:    str
-    length:      str
-    difficulty:  float
+    mode:        str = "auto"   # auto-picked from topic/material when "auto" or empty
+    language:    str = "English"
+    length:      str = "15 min — quick drill"
+    difficulty:  float = 0.5
     school_type: str = ""
     grade:       str = ""
 
@@ -468,6 +468,18 @@ def _build_teacher_prompts(
     else:
         accuracy_note = "Too early to calibrate (fewer than 3 moves tested). Maintain baseline complexity from the case file."
 
+    npc_names = [c.name for c in blueprint.characters if c.name]
+    teacher_name = blueprint.teacher.name
+    npc_list_text = (
+        "ALLOWED NPC NAMES (use one of these in [NPC:Name] — never the teacher):\n"
+        + "\n".join(f"  - {n}" for n in npc_names)
+        + f"\n\nFORBIDDEN as NPC: {teacher_name} (this is the teacher / narrator, "
+          f"not an in-world character). Never write [NPC:{teacher_name}]."
+    ) if npc_names else (
+        f"No characters defined in the case file. Do not invent an NPC named "
+        f"{teacher_name} (that is the teacher). Speak only through [NARRATION]."
+    )
+
     user_template = _load_prompt("teacher_user_prompt.txt")
     user_message = user_template.format(
         blueprint_json=blueprint_json,
@@ -478,8 +490,59 @@ def _build_teacher_prompts(
                         if is_closing_move else "NO",
         already_tested=already_tested,
         accuracy_note=accuracy_note,
+        npc_roster=npc_list_text,
     )
     return system_prompt, user_message
+
+def _strip_duplicate_response(raw: str) -> str:
+    """If the model echoed the same [NARRATION]…[STATE] block twice, keep only the
+    first. Small 8B models on Ollama occasionally regenerate the whole reply when
+    num_predict is large; the second copy adds noise and never adds new information.
+    """
+    parts = re.split(r"(?=\[NARRATION\])", raw)
+    parts = [p for p in parts if p.strip()]
+    if len(parts) >= 2 and parts[0].strip() == parts[1].strip():
+        return parts[0].rstrip()
+    return raw
+
+def _strip_prompt_leaks(raw: str) -> str:
+    """Remove lines that look like leaked instruction warnings (e.g. the WARNING
+    bullets from the system prompt being copied into [QUESTION])."""
+    cleaned = []
+    for line in raw.splitlines():
+        s = line.strip()
+        if s.startswith("⚠") or s.startswith("WARNING") or "MANDATORY" in s.upper() and "HARD ERROR" in s.upper():
+            continue
+        if re.match(r"^[─━—=]{6,}$", s):
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned)
+
+def _infer_state_from_answer(user_prompt: str, current_move: "Move | None") -> str:
+    """Fallback heuristic when the model omits the [STATE] value. A substantive
+    student answer (length, presence of move keywords) is taken as ADVANCE; a short
+    or empty utterance stays STAY. This protects against the 8B model occasionally
+    leaving the [STATE] tag empty after [QUESTION]."""
+    msg = (user_prompt or "").strip()
+    if msg.startswith("[SYSTEM:") or not msg:
+        return "STAY"
+    if len(msg) < 30:
+        return "STAY"
+    # Long, substantive answers (≥120 chars) are almost always real attempts —
+    # advance and let the case progress, even if no specific keyword overlap.
+    if len(msg) >= 120:
+        return "ADVANCE"
+    if not current_move:
+        return "ADVANCE" if len(msg) >= 60 else "STAY"
+    expected = (current_move.expected_student_response or "").lower()
+    if not expected:
+        return "ADVANCE" if len(msg) >= 60 else "STAY"
+    keywords = re.findall(r"[\wäöüÄÖÜß]{5,}", expected)
+    if not keywords:
+        return "ADVANCE" if len(msg) >= 60 else "STAY"
+    msg_low = msg.lower()
+    hits = sum(1 for k in keywords if k.lower() in msg_low)
+    return "ADVANCE" if (hits >= 1 and len(msg) >= 50) or len(msg) >= 90 else "STAY"
 
 def run_teacher_agent(
     blueprint:        "SessionBlueprint",
@@ -494,14 +557,20 @@ def run_teacher_agent(
         blueprint, user_prompt, current_move, history, visited_move_ids, accuracy_ratio,
     )
     raw = ask_ollama(system_prompt, user_message, options=_OPTS_CHAT)
+    raw = _strip_duplicate_response(raw)
+    raw = _strip_prompt_leaks(raw)
 
-    state = "STAY"
     state_match = re.search(
         r"\[STATE\][:\s]*\n?\s*(ADVANCE|STAY|CLOSE)", raw, re.IGNORECASE
     )
     if state_match:
         state = state_match.group(1).upper()
         raw = raw[:state_match.start()].rstrip()
+    else:
+        empty_tag = re.search(r"\[STATE\][:\s]*\n?\s*$", raw, re.IGNORECASE)
+        if empty_tag:
+            raw = raw[:empty_tag.start()].rstrip()
+        state = _infer_state_from_answer(user_prompt, current_move)
 
     return raw, state
 
@@ -732,7 +801,23 @@ def run_story_stage(req: "WorkRequest", research: dict, tasks: dict) -> "Session
                      options=_OPTS_BLUEPRINT, force_json=True)
     print(f"Stage 3 raw length: {len(raw)}")
     data = _robust_parse(raw, "Stage 3 Blueprint", _OPTS_BLUEPRINT)
+    _strip_teacher_from_characters(data, req.teacher.name)
     return SessionBlueprint._from_dict(data)
+
+def _strip_teacher_from_characters(blueprint_dict: dict, teacher_name: str) -> None:
+    """Smaller Gemma models sometimes copy the teacher's name into characters[].
+    When that happens the teacher's signature phrases bleed into NPC dialogue. Drop
+    any character whose name matches the teacher (case-insensitive)."""
+    if not isinstance(blueprint_dict, dict):
+        return
+    chars = blueprint_dict.get("characters")
+    if not isinstance(chars, list) or not teacher_name:
+        return
+    tname = teacher_name.strip().lower()
+    blueprint_dict["characters"] = [
+        c for c in chars
+        if isinstance(c, dict) and (c.get("name") or "").strip().lower() != tname
+    ]
 
 def _run_validation(blueprint: "SessionBlueprint") -> None:
     try:
@@ -811,9 +896,48 @@ def _apply_state_signal(
 
 # ── API ──────────────────────────────────────────────────────────
 
+_AUTO_MODE_KEYWORDS = {
+    "Murder":     ("murder", "homicide", "killer", "killing", "victim",
+                   "mord", "tot", "tötung", "leiche", "totschlag"),
+    "Heist":      ("heist", "stolen", "theft", "robbery", "vault", "burglary",
+                   "raub", "diebstahl", "einbruch", "tresor"),
+    "Conspiracy": ("conspiracy", "cover-up", "manipulation", "fraud", "syndicate",
+                   "verschwörung", "vertuschung", "manipulation", "betrug"),
+    "Cold Case":  ("cold case", "unsolved", "archive", "forgotten", "vintage",
+                   "ungelöst", "archiv", "altakte"),
+}
+
+def _auto_pick_mode(req: "WorkRequest") -> str:
+    """If lesson.mode is 'auto' or empty, pick one of the four modes by simple
+    keyword heuristic on topic + material. Defaults to Cold Case so the case
+    has an archival framing when no signal is present."""
+    haystack = " ".join([
+        (req.lesson.topic or ""),
+        (req.material or "")[:1500],
+    ]).lower()
+    best = None
+    best_score = 0
+    for mode, kws in _AUTO_MODE_KEYWORDS.items():
+        score = sum(1 for k in kws if k in haystack)
+        if score > best_score:
+            best_score = score
+            best = mode
+    if best:
+        return best
+    # No keyword hits → rotate per material hash so different sessions feel different.
+    candidates = ["Cold Case", "Murder", "Conspiracy", "Heist"]
+    return candidates[hash(haystack) % len(candidates)]
+
+def _resolve_lesson_mode(req: "WorkRequest") -> None:
+    m = (req.lesson.mode or "").strip()
+    if not m or m.lower() in {"auto", "automatic"}:
+        req.lesson.mode = _auto_pick_mode(req)
+        print(f"Auto-selected mode: {req.lesson.mode}")
+
 @app.post("/api/work")
 def work(req: WorkRequest):
     print("Request received (sync)")
+    _resolve_lesson_mode(req)
     try:
         research  = run_research_stage(req)
         tasks     = run_task_design_stage(req, research)
@@ -830,9 +954,10 @@ def work(req: WorkRequest):
 
 @app.post("/api/work/stream")
 def work_stream(req: WorkRequest):
+    _resolve_lesson_mode(req)
     def gen():
         try:
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 1, 'label': 'Analyzing topic and concepts…'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 1, 'label': 'Analyzing topic and concepts…', 'mode': req.lesson.mode})}\n\n"
             research = run_research_stage(req)
             yield f"data: {json.dumps({'type': 'stage_done', 'stage': 1})}\n\n"
 
@@ -864,6 +989,8 @@ def _restore_blueprint(data: dict) -> SessionBlueprint:
     Used by /api/session/restore so the frontend can recover after a backend restart
     without having to regenerate the whole case.
     """
+    teacher_name = (data.get("teacher") or {}).get("name") or ""
+    _strip_teacher_from_characters(data, teacher_name)
     def fit(cls_, d):
         if not isinstance(d, dict):
             return cls_()
@@ -979,12 +1106,13 @@ def chat_stream(req: ChatRequest):
             return
 
         # Parse state from completed buffer
-        signal = "STAY"
         state_match = re.search(
             r"\[STATE\][:\s]*\n?\s*(ADVANCE|STAY|CLOSE)", buffer, re.IGNORECASE
         )
         if state_match:
             signal = state_match.group(1).upper()
+        else:
+            signal = _infer_state_from_answer(req.message, current_move)
 
         if not is_hint:
             state["turn_count"] += 1

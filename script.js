@@ -3,7 +3,7 @@ document.querySelectorAll('.trait').forEach(t =>
     t.addEventListener('click', () => t.classList.toggle('on'))
 );
 
-// Segmented control
+// Segmented control (mode picker, length picker, …)
 document.querySelectorAll('.seg').forEach(seg =>
   seg.querySelectorAll('.seg-item').forEach(item =>
     item.addEventListener('click', () => {
@@ -11,14 +11,6 @@ document.querySelectorAll('.seg').forEach(seg =>
       item.classList.add('on');
     })
   )
-);
-
-// Project selection
-document.querySelectorAll('.project').forEach(p =>
-  p.addEventListener('click', () => {
-    document.querySelectorAll('.project').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-  })
 );
 
 // Difficulty slider
@@ -218,7 +210,7 @@ async function send() {
     },
     lesson: {
       topic,
-      mode:        document.querySelector('.seg-item.on')?.textContent.trim() ?? '',
+      mode:        'auto',  // backend picks Cold Case / Murder / Conspiracy / Heist
       language:    document.getElementById('lesson-language').value,
       length:      document.getElementById('lesson-length').value,
       difficulty:  difficultyPct / 100,

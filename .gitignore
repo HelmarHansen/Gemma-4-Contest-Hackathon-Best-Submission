@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.claude/
+memory/
+
+# Local-only build artefacts (DaVinci Resolve launch video)
+davinci/

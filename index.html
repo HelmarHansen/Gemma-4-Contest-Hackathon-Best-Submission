@@ -28,30 +28,14 @@
       </div>
     </div>
 
-    <button class="new-btn">
-      <span class="plus">+</span>
-      <span>New roleplay</span>
-      <span class="shortcut">⌘N</span>
-    </button>
-
-    <div class="search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input placeholder="Search projects…">
-    </div>
-
-    <h3>Saved learning projects</h3>
-
-    <div class="projects" id="project-list"></div>
+    <div class="side-spacer"></div>
 
     <div class="sidebar-foot">
-      <div class="avatar">?</div>
+      <div class="avatar">D</div>
       <div class="who">
-        <div class="who-name">Guest</div>
-        <div class="who-plan"><span class="gem">●</span> Local — Gemma 4</div>
+        <div class="who-name">Detective</div>
+        <div class="who-plan"><span class="gem">●</span> Local · Gemma 4</div>
       </div>
-      <button class="icon-btn" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-      </button>
     </div>
   </aside>
 
@@ -59,15 +43,10 @@
   <main class="main">
     <div class="topbar">
       <div class="crumb">
-        <span>Library</span>
-        <span class="sep">›</span>
-        <span class="here">New roleplay</span>
+        <span class="here">Neuer Fall</span>
       </div>
       <div class="topbar-right">
         <span class="badge"><span class="pulse"></span> Gemma 4 · on-device</span>
-        <button class="icon-btn" title="Help">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
-        </button>
       </div>
     </div>
 
@@ -109,10 +88,6 @@
               <h2><span class="num">02</span>Your narrator</h2>
               <div class="card-desc">Who runs this investigation? A hardboiled dispatcher, a mysterious informant, a ghost from the archives — they set the tone and voice every NPC.</div>
             </div>
-            <button class="btn" type="button" style="white-space:nowrap;font-size:12px;padding:7px 12px;flex-shrink:0">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>
-              Surprise me
-            </button>
           </div>
           <div class="persona-grid">
             <div class="portrait" title="Choose portrait">
@@ -168,11 +143,10 @@
               <div class="field">
                 <label>Exam topic &amp; scope</label>
                 <div class="ta-wrap">
-                  <textarea id="topic-ta" oninput="updateCount(this)" placeholder="e.g. I have an oral exam on the French Revolution — causes, key figures, the Declaration of the Rights of Man. Make it a murder investigation where the victim was a revolutionary scholar. Push me hard on dates and motives."></textarea>
+                  <textarea id="topic-ta" oninput="updateCount(this)" placeholder="e.g. I have an oral exam on the French Revolution — causes, key figures, the Declaration of the Rights of Man. Push me hard on dates and motives."></textarea>
                   <div class="ta-foot">
                     <div class="ta-chips">
-                      <span class="chip">Examples</span>
-                      <span class="chip">+ Add goal</span>
+                      <span class="auto-mode-note">The mystery format is chosen automatically from your topic.</span>
                     </div>
                     <span id="char-count">0 / 2,000</span>
                   </div>
@@ -180,22 +154,13 @@
               </div>
             </div>
             <div class="options">
-              <div class="field" style="margin-bottom:0">
-                <label>Investigation style</label>
-                <div class="seg" id="mode-seg">
-                  <div class="seg-item">Cold Case</div>
-                  <div class="seg-item on">Murder</div>
-                  <div class="seg-item">Conspiracy</div>
-                  <div class="seg-item">Heist</div>
-                </div>
-              </div>
               <div class="opt-row">
                 <div class="field" style="margin-bottom:0">
                   <label>Language</label>
                   <select id="lesson-language">
-                    <option>French (immersive)</option>
-                    <option>English</option>
+                    <option selected>English</option>
                     <option>German</option>
+                    <option>French</option>
                     <option>Spanish</option>
                   </select>
                 </div>
@@ -211,27 +176,23 @@
               </div>
               <div class="opt-row">
                 <div class="field" style="margin-bottom:0">
-                  <label>School type</label>
+                  <label>School level</label>
                   <select id="lesson-school-type">
-                    <option value="">— not specified —</option>
-                    <option>Grundschule</option>
-                    <option>Hauptschule</option>
-                    <option>Realschule</option>
-                    <option selected>Gymnasium</option>
-                    <option>Gesamtschule</option>
-                    <option>Berufsschule</option>
+                    <option value="">— unspecified —</option>
+                    <option>Elementary</option>
+                    <option>Middle school</option>
+                    <option selected>High school</option>
+                    <option>Vocational school</option>
                     <option>University</option>
                   </select>
                 </div>
                 <div class="field" style="margin-bottom:0">
-                  <label>Class / grade</label>
+                  <label>Grade / year</label>
                   <select id="lesson-grade">
-                    <option value="">— not specified —</option>
-                    <option>Klasse 1</option><option>Klasse 2</option><option>Klasse 3</option>
-                    <option>Klasse 4</option><option>Klasse 5</option><option>Klasse 6</option>
-                    <option>Klasse 7</option><option>Klasse 8</option><option>Klasse 9</option>
-                    <option>Klasse 10</option><option>Klasse 11</option><option>Klasse 12</option>
-                    <option>Klasse 13 / Abitur</option>
+                    <option value="">— unspecified —</option>
+                    <option>Grade 5</option><option>Grade 6</option><option>Grade 7</option>
+                    <option>Grade 8</option><option>Grade 9</option><option>Grade 10</option>
+                    <option>Grade 11</option><option>Grade 12</option>
                     <option>1st year university</option><option>2nd year university</option>
                     <option>3rd year university</option><option>Master / graduate</option>
                   </select>
@@ -262,7 +223,6 @@
           <div class="action-tokens">No documents yet · add material to begin</div>
         </div>
         <div class="action-right">
-          <button class="btn">Save draft</button>
           <button class="btn btn-primary" onclick="send()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l14 8-14 8z" fill="currentColor"/></svg>
             Open the case

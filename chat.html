@@ -33,7 +33,7 @@
 
     <a class="back-btn" href="/">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      Back to library
+      New case
     </a>
 
     <!-- Investigation: case acts -->
@@ -89,6 +89,14 @@
       </nav>
 
       <div class="top-actions">
+        <div class="mood-pill" id="mood-pill" title="Current atmosphere">
+          <span class="mood-dot" id="mood-dot"></span>
+          <span class="mood-label" id="mood-label">—</span>
+        </div>
+        <button class="icon-btn music-btn" title="Toggle ambient music" id="music-btn" aria-pressed="false">
+          <svg class="music-on"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <svg class="music-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 3l18 18"/></svg>
+        </button>
         <button class="icon-btn" title="End session" id="end-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
@@ -105,6 +113,9 @@
         <div class="composer">
           <textarea id="composer-investigation" rows="1" placeholder="What does the detective do or say…"></textarea>
           <div class="composer-tools">
+            <button class="icon-btn mic-btn" title="Voice input — click to speak" id="mic-investigation" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            </button>
             <button class="icon-btn" title="Hint" id="hint-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
             </button>
@@ -149,6 +160,9 @@
         <div class="composer">
           <textarea id="composer-interrogation" rows="1" placeholder="Choose a suspect first…" disabled></textarea>
           <div class="composer-tools">
+            <button class="icon-btn mic-btn" title="Voice input — click to speak" id="mic-interrogation" aria-pressed="false" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            </button>
             <button class="send-btn" id="send-interrogation" title="Send" disabled>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
             </button>

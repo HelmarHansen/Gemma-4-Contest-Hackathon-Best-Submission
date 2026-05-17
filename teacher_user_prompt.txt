@@ -2,6 +2,9 @@ CASE FILE (for your eyes only):
 {blueprint_json}
 
 ════════════════════════════════════════
+{npc_roster}
+════════════════════════════════════════
+
 ACTIVE MOVE — THE ONLY MOVE YOU ARE WORKING ON RIGHT NOW:
 {current_move_json}
 If current_move_json is empty ({{}}), this is the start of the session.
