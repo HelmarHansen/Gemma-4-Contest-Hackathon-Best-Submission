@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_URL = "http://100.88.45.102:11434/api/chat"
 MODEL      = "gemma4"
 
 # ── Ollama parameter presets ─────────────────────────────────────
@@ -821,7 +821,7 @@ def work(req: WorkRequest):
         _run_validation(blueprint)
         _sessions[blueprint.session_id] = blueprint
         _session_state[blueprint.session_id] = _init_state(blueprint)
-        print(f"Blueprint generated: {blueprint.session_id}")
+        print(f"Blueprint generated: {blueprint}")
         return blueprint.to_dict()
     except ValueError as e:
         raise HTTPException(status_code=422, detail=f"Model returned invalid JSON: {e}")
@@ -849,7 +849,7 @@ def work_stream(req: WorkRequest):
 
             yield f"data: {json.dumps({'type': 'stage_done', 'stage': 3})}\n\n"
             yield f"data: {json.dumps({'type': 'complete', 'blueprint': blueprint.to_dict()})}\n\n"
-
+            print(f"Blueprint generated: {blueprint}")
         except Exception as e:
             import traceback; traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
