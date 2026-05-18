@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 app = FastAPI()
-
+#Todo: Gemma4 Voice Generation
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL      = "gemma4"
 
